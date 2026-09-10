@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_teq_access_profile_list" model="ir.ui.view"><field name="name">teq.access.profile.list</field><field name="model">teq.access.profile</field><field name="arch" type="xml"><list><field name="name"/><field name="active"/><field name="group_ids" widget="many2many_tags"/><field name="user_ids" widget="many2many_tags"/></list></field></record>
+    <record id="view_teq_access_profile_form" model="ir.ui.view"><field name="name">teq.access.profile.form</field><field name="model">teq.access.profile</field><field name="arch" type="xml"><form><header><button name="action_apply_to_users" type="object" string="Re-apply to Users" class="btn-primary"/></header><sheet><group><field name="name"/><field name="active"/><field name="description"/></group><notebook><page string="Odoo Permissions"><field name="group_ids" widget="many2many_tags" options="{'no_create': True}"/></page><page string="Assigned Users"><field name="user_ids" widget="many2many_tags" readonly="1"/></page></notebook></sheet></form></field></record>
+    <record id="action_teq_access_profile" model="ir.actions.act_window"><field name="name">Access Profiles</field><field name="res_model">teq.access.profile</field><field name="view_mode">list,form</field></record>
+    <menuitem id="menu_teq_administration_root" name="TEQ Administration" sequence="95" groups="teq_trust_core.group_teq_master_admin"/>
+    <menuitem id="menu_teq_access_profiles" name="Access Profiles" parent="teq_trust_core.menu_teq_administration_root" action="teq_trust_core.action_teq_access_profile" sequence="10" groups="teq_trust_core.group_teq_master_admin"/>
+</odoo>
