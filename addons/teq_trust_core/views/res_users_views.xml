@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_users_form_teq_access" model="ir.ui.view">
+        <field name="name">res.users.form.teq.access</field><field name="model">res.users</field><field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='access_rights']" position="inside">
+                <group string="TEQ Access Control" groups="teq_trust_core.group_teq_master_admin">
+                    <field name="teq_access_profile_ids" widget="many2many_tags"/>
+                    <field name="teq_managed_group_ids" widget="many2many_tags" readonly="1" options="{'no_create': True}"/>
+                    <button name="action_teq_apply_access_profiles" type="object" string="Apply TEQ Profiles" class="btn-primary"/>
+                    <button name="action_teq_clear_managed_access" type="object" string="Clear TEQ Managed Access"/>
+                    <button name="action_teq_grant_full_access" type="object" string="Grant Full Installed-App Access"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
