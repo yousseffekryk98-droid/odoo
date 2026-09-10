@@ -1,0 +1,16 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_teq_access_profile_master,teq.access.profile master,model_teq_access_profile,teq_trust_core.group_teq_master_admin,1,1,1,1
+access_teq_equipment_user,teq.calibration.equipment user,model_teq_calibration_equipment,teq_trust_core.group_teq_calibration_user,1,1,1,0
+access_teq_equipment_manager,teq.calibration.equipment manager,model_teq_calibration_equipment,teq_trust_core.group_teq_calibration_manager,1,1,1,1
+access_teq_job_user,teq.calibration.job user,model_teq_calibration_job,teq_trust_core.group_teq_calibration_user,1,1,1,0
+access_teq_job_manager,teq.calibration.job manager,model_teq_calibration_job,teq_trust_core.group_teq_calibration_manager,1,1,1,1
+access_teq_result_user,teq.calibration.result.line user,model_teq_calibration_result_line,teq_trust_core.group_teq_calibration_user,1,1,1,0
+access_teq_result_manager,teq.calibration.result.line manager,model_teq_calibration_result_line,teq_trust_core.group_teq_calibration_manager,1,1,1,1
+access_teq_certificate_user,teq.calibration.certificate user,model_teq_calibration_certificate,teq_trust_core.group_teq_calibration_user,1,0,0,0
+access_teq_certificate_manager,teq.calibration.certificate manager,model_teq_calibration_certificate,teq_trust_core.group_teq_calibration_manager,1,1,1,1
+access_teq_sign_user,teq.sign.request user,model_teq_sign_request,teq_trust_core.group_teq_sign_user,1,1,1,0
+access_teq_sign_manager,teq.sign.request manager,model_teq_sign_request,teq_trust_core.group_teq_sign_manager,1,1,1,1
+access_teq_appraisal_user,teq.hr.appraisal employee,model_teq_hr_appraisal,teq_trust_core.group_teq_appraisal_user,1,1,0,0
+access_teq_appraisal_manager,teq.hr.appraisal manager,model_teq_hr_appraisal,teq_trust_core.group_teq_appraisal_manager,1,1,1,1
+access_teq_esg_user,teq.esg.metric user,model_teq_esg_metric,teq_trust_core.group_teq_esg_user,1,1,1,0
+access_teq_esg_manager,teq.esg.metric manager,model_teq_esg_metric,teq_trust_core.group_teq_esg_manager,1,1,1,1
