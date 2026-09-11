@@ -25,6 +25,10 @@ odoo/addons/base/maintenance
 # windows installation config file
 /odoo.conf
 
+# TEQ deployment secrets and generated backups
+deploy/.env
+deploy/backups/
+
 # generated for windows installer?
 install/win32/*.bat
 install/win32/meta.py
