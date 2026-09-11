@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:${POSTGRES_IMAGE_TAG:-15-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-odoo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - teq-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odoo} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - teq-net
+
+  odoo:
+    image: ${ODOO_IMAGE:-odoo:19.0-20260908}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      PORT: 5432
+      USER: ${POSTGRES_USER:-odoo}
+      PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
+      ODOO_MASTER_PASSWORD: ${ODOO_MASTER_PASSWORD:?Set ODOO_MASTER_PASSWORD in deploy/.env}
+      ODOO_DB_NAME: ${ODOO_DB_NAME:-teq_trust}
+      ODOO_PROXY_MODE: ${ODOO_PROXY_MODE:-False}
+      ODOO_LIST_DB: ${ODOO_LIST_DB:-False}
+      ODOO_WORKERS: ${ODOO_WORKERS:-0}
+      ODOO_LIMIT_TIME_CPU: ${ODOO_LIMIT_TIME_CPU:-120}
+      ODOO_LIMIT_TIME_REAL: ${ODOO_LIMIT_TIME_REAL:-240}
+      ODOO_MAX_CRON_THREADS: ${ODOO_MAX_CRON_THREADS:-1}
+    entrypoint: ["/bin/bash", "/mnt/teq-deploy/entrypoint.sh"]
+    ports:
+      - "${ODOO_BIND:-0.0.0.0}:${ODOO_PORT:-8069}:8069"
+    volumes:
+      - teq-odoo-data:/var/lib/odoo
+      - ./addons/teq_trust_core:/mnt/extra-addons/teq_trust_core:ro
+      - ./deploy:/mnt/teq-deploy:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8069/web/login', timeout=5).read(1)\""]
+      interval: 20s
+      timeout: 8s
+      retries: 10
+      start_period: 40s
+    networks:
+      - teq-net
+
+volumes:
+  teq-db-data:
+    name: teq-trust-postgres-data
+  teq-odoo-data:
+    name: teq-trust-odoo-data
+
+networks:
+  teq-net:
+    name: teq-trust-network
