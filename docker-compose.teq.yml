@@ -36,7 +36,13 @@ services:
       ODOO_LIMIT_TIME_CPU: ${ODOO_LIMIT_TIME_CPU:-120}
       ODOO_LIMIT_TIME_REAL: ${ODOO_LIMIT_TIME_REAL:-240}
       ODOO_MAX_CRON_THREADS: ${ODOO_MAX_CRON_THREADS:-1}
-    entrypoint: ["/bin/bash", "/mnt/teq-deploy/entrypoint.sh"]
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        tr -d '\r' < /mnt/teq-deploy/entrypoint.sh > /tmp/teq-entrypoint.sh
+        exec /bin/bash /tmp/teq-entrypoint.sh "$@"
+      - --
     ports:
       - "${ODOO_BIND:-0.0.0.0}:${ODOO_PORT:-8069}:8069"
     volumes:
