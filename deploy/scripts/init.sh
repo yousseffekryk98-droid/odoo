@@ -39,7 +39,9 @@ DB_EXISTS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -
   psql -U "${DB_USER}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'")"
 
 if [[ "${DB_EXISTS}" == "1" ]]; then
-  echo "Database ${DB_NAME} already exists; skipping initialization."
+  echo "Database ${DB_NAME} already exists; upgrading TEQ Trust Egypt ERP..."
+  docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm --no-deps odoo \
+    -d "${DB_NAME}" -u teq_trust_core --without-demo=all --stop-after-init
 else
   echo "Initializing ${DB_NAME} and installing TEQ Trust Egypt ERP..."
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm --no-deps odoo \
