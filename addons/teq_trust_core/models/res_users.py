@@ -33,11 +33,26 @@ class ResUsers(models.Model):
         self.ensure_one()
         return self.teq_access_profile_ids.filtered("active").mapped("group_ids")
 
+    def _teq_check_self_lockout(self, user, previous_groups, target_groups):
+        if user.id != self.env.user.id:
+            return
+        master_group = self.env.ref("teq_trust_core.group_teq_master_admin")
+        system_group = self.env.ref("base.group_system")
+        protected_groups = previous_groups & (master_group | system_group)
+        if protected_groups - target_groups:
+            raise UserError(
+                _(
+                    "You cannot remove your own TEQ Master Administrator or Odoo Settings access. "
+                    "Assign another master administrator first and make the change from that account."
+                )
+            )
+
     def _teq_apply_access_profiles(self):
         self._teq_check_master_admin()
         for user in self:
             target_groups = user._teq_profile_groups()
             previous_groups = user.teq_managed_group_ids
+            self._teq_check_self_lockout(user, previous_groups, target_groups)
             to_remove = previous_groups - target_groups
             commands = [(3, group.id) for group in to_remove]
             commands += [(4, group.id) for group in target_groups]
@@ -74,6 +89,16 @@ class ResUsers(models.Model):
 
     def action_teq_clear_managed_access(self):
         self._teq_check_master_admin()
+        master_group = self.env.ref("teq_trust_core.group_teq_master_admin")
+        system_group = self.env.ref("base.group_system")
+        for user in self:
+            if user.id == self.env.user.id and user.teq_managed_group_ids & (master_group | system_group):
+                raise UserError(
+                    _(
+                        "You cannot clear your own managed administrator access. "
+                        "Use another TEQ Master Administrator account for this change."
+                    )
+                )
         self.write({"teq_access_profile_ids": [(5, 0, 0)]})
         return True
 
@@ -89,8 +114,10 @@ class ResUsers(models.Model):
             to_remove = previous_groups - target_groups
             commands = [(3, group.id) for group in to_remove]
             commands += [(4, group.id) for group in target_groups]
-            user.sudo().write({
-                "group_ids": commands,
-                "teq_managed_group_ids": [(6, 0, target_groups.ids)],
-            })
+            user.sudo().write(
+                {
+                    "group_ids": commands,
+                    "teq_managed_group_ids": [(6, 0, target_groups.ids)],
+                }
+            )
         return True
