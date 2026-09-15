@@ -54,7 +54,7 @@ class TeqSignRequest(models.Model):
         "company_id",
     }
     _SIGNER_SENT_FIELDS = {"signature_image", "refusal_reason"}
-    _SIGNED_IMMUTABLE_FIELDS = _REQUESTER_DRAFT_FIELDS | _SIGNER_SENT_FIELDS | {"requester_id"}
+    _CONTROLLED_FIELDS = _REQUESTER_DRAFT_FIELDS | _SIGNER_SENT_FIELDS | {"requester_id"}
 
     @api.depends("requester_id", "signer_id")
     @api.depends_context("uid")
@@ -108,22 +108,26 @@ class TeqSignRequest(models.Model):
 
         is_manager = self.env.user.has_group("teq_trust_core.group_teq_sign_manager")
         for record in self:
-            if record.state == "signed" and set(vals) & self._SIGNED_IMMUTABLE_FIELDS:
-                raise UserError(_("A signed request is immutable. Create a new request for a revised document."))
             if self.env.context.get("teq_sign_workflow_transition"):
-                continue
-            if is_manager:
                 continue
 
             allowed_fields = set()
-            if record.requester_id == self.env.user and record.state == "draft":
+            if record.state == "draft" and (is_manager or record.requester_id == self.env.user):
                 allowed_fields |= self._REQUESTER_DRAFT_FIELDS
-            if record.signer_id == self.env.user and record.state == "sent":
+                if is_manager:
+                    allowed_fields.add("requester_id")
+            if record.state == "sent" and (is_manager or record.signer_id == self.env.user):
                 allowed_fields |= self._SIGNER_SENT_FIELDS
 
-            restricted = (set(vals) & self._SIGNED_IMMUTABLE_FIELDS) - allowed_fields
+            restricted = (set(vals) & self._CONTROLLED_FIELDS) - allowed_fields
             if restricted:
-                raise UserError(_("You cannot edit these document-sign fields at the current workflow stage."))
+                if record.state == "signed":
+                    raise UserError(
+                        _("A signed request is immutable. Create a new request for a revised document.")
+                    )
+                raise UserError(
+                    _("You cannot edit these document-sign fields at the current workflow stage.")
+                )
 
         return super().write(vals)
 
