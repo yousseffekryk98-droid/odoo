@@ -1,7 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_teq_sign_request_list" model="ir.ui.view"><field name="name">teq.sign.request.list</field><field name="model">teq.sign.request</field><field name="arch" type="xml"><list><field name="name"/><field name="subject"/><field name="requester_id"/><field name="signer_id"/><field name="state" widget="badge"/><field name="signed_at"/></list></field></record>
-    <record id="view_teq_sign_request_form" model="ir.ui.view"><field name="name">teq.sign.request.form</field><field name="model">teq.sign.request</field><field name="arch" type="xml"><form><header><button name="action_send" type="object" string="Send for Signature" class="btn-primary" invisible="state != 'draft'"/><button name="action_sign" type="object" string="Sign" class="btn-primary" invisible="state != 'sent'"/><button name="action_refuse" type="object" string="Refuse" invisible="state != 'sent'"/><button name="action_cancel" type="object" string="Cancel" invisible="state in ('signed','cancelled')"/><button name="action_reset_to_draft" type="object" string="Reset to Draft" invisible="state not in ('refused','cancelled')" groups="teq_trust_core.group_teq_sign_manager"/><field name="state" widget="statusbar" statusbar_visible="draft,sent,signed"/></header><sheet><div class="oe_title"><h1><field name="subject"/></h1></div><group><group><field name="name"/><field name="requester_id"/><field name="signer_id"/><field name="company_id" groups="base.group_multi_company"/></group><group><field name="document" filename="document_filename"/><field name="document_filename" invisible="1"/><field name="signature_image" widget="image"/><field name="signed_at" readonly="1"/></group></group><group string="Refusal" invisible="state != 'refused'"><field name="refusal_reason"/></group><field name="notes"/></sheet><chatter/></form></field></record>
-    <record id="action_teq_sign_request" model="ir.actions.act_window"><field name="name">Document Sign</field><field name="res_model">teq.sign.request</field><field name="view_mode">list,form</field></record>
-    <menuitem id="menu_teq_sign_root" name="Sign" sequence="65" action="teq_trust_core.action_teq_sign_request" groups="teq_trust_core.group_teq_sign_user"/>
+    <record id="view_teq_sign_request_list" model="ir.ui.view">
+        <field name="name">teq.sign.request.list</field>
+        <field name="model">teq.sign.request</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="subject"/>
+                <field name="requester_id"/>
+                <field name="signer_id"/>
+                <field name="state" widget="badge"/>
+                <field name="signed_at"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_teq_sign_request_form" model="ir.ui.view">
+        <field name="name">teq.sign.request.form</field>
+        <field name="model">teq.sign.request</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_send" type="object" string="Send for Signature" class="btn-primary"
+                            invisible="state != 'draft' or not can_requester_edit"/>
+                    <button name="action_sign" type="object" string="Sign" class="btn-primary"
+                            invisible="state != 'sent' or not can_sign"/>
+                    <button name="action_refuse" type="object" string="Refuse"
+                            invisible="state != 'sent' or not can_sign"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state in ('signed','cancelled') or not can_requester_edit"/>
+                    <button name="action_reset_to_draft" type="object" string="Reset to Draft"
+                            invisible="state not in ('refused','cancelled')"
+                            groups="teq_trust_core.group_teq_sign_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,sent,signed,refused,cancelled"/>
+                </header>
+                <sheet>
+                    <field name="can_manage_sign" invisible="1"/>
+                    <field name="can_sign" invisible="1"/>
+                    <field name="can_requester_edit" invisible="1"/>
+                    <div class="oe_title"><h1><field name="subject" readonly="state != 'draft' or not can_requester_edit"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="name" readonly="1"/>
+                            <field name="requester_id" readonly="1"/>
+                            <field name="signer_id" readonly="state != 'draft' or not can_requester_edit"/>
+                            <field name="company_id" groups="base.group_multi_company"
+                                   readonly="state != 'draft' or not can_requester_edit"/>
+                        </group>
+                        <group>
+                            <field name="document" filename="document_filename"
+                                   readonly="state != 'draft' or not can_requester_edit"/>
+                            <field name="document_filename" invisible="1"/>
+                            <field name="signature_image" widget="image"
+                                   readonly="state != 'sent' or not can_sign"/>
+                            <field name="signed_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Refusal" invisible="state not in ('sent','refused')">
+                        <field name="refusal_reason" placeholder="Required before refusing."
+                               readonly="state != 'sent' or not can_sign"/>
+                    </group>
+                    <field name="notes" readonly="state != 'draft' or not can_requester_edit"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_teq_sign_request" model="ir.actions.act_window">
+        <field name="name">Document Sign</field>
+        <field name="res_model">teq.sign.request</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_teq_sign_root" name="Sign" sequence="65"
+              action="teq_trust_core.action_teq_sign_request"
+              groups="teq_trust_core.group_teq_sign_user"/>
 </odoo>
