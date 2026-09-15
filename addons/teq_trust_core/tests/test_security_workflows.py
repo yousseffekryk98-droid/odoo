@@ -51,13 +51,13 @@ class TestTeqSecurityWorkflows(TransactionCase):
             "group_ids": [(6, 0, [cls.sign_user_group.id])],
         })
 
-    def test_technician_cannot_approve_calibration_job(self):
+    def _new_job(self, technician=None, suffix=""):
         partner = self.env["res.partner"].with_user(self.admin).create({
-            "name": "TEQ Calibration Client",
+            "name": "TEQ Calibration Client%s" % suffix,
             "is_company": True,
         })
         equipment = self.env["teq.calibration.equipment"].with_user(self.admin).create({
-            "name": "Client Pressure Gauge",
+            "name": "Client Instrument%s" % suffix,
             "ownership": "customer",
             "partner_id": partner.id,
             "company_id": self.env.company.id,
@@ -65,12 +65,19 @@ class TestTeqSecurityWorkflows(TransactionCase):
         job = self.env["teq.calibration.job"].with_user(self.admin).create({
             "partner_id": partner.id,
             "equipment_id": equipment.id,
-            "technician_id": self.technician.id,
+            "technician_id": (technician or self.technician).id,
             "company_id": self.env.company.id,
         })
+        return partner, equipment, job
 
-        job.with_user(self.technician).action_mark_received()
-        job.with_user(self.technician).action_start()
+    def _start_job(self, job, technician=None):
+        actor = technician or self.technician
+        job.with_user(actor).action_mark_received()
+        job.with_user(actor).action_start()
+
+    def test_technician_cannot_approve_calibration_job(self):
+        _partner, _equipment, job = self._new_job()
+        self._start_job(job)
         self.env["teq.calibration.result.line"].with_user(self.technician).create({
             "job_id": job.id,
             "test_point": "100 kPa",
@@ -82,35 +89,18 @@ class TestTeqSecurityWorkflows(TransactionCase):
             "unit": "kPa",
         })
         job.with_user(self.technician).action_send_to_review()
-
         with self.assertRaises(UserError):
             job.with_user(self.technician).action_mark_done()
 
     def test_technician_cannot_edit_another_technicians_results(self):
-        User = self.env["res.users"].with_user(self.admin)
-        other_technician = User.create({
+        other_technician = self.env["res.users"].with_user(self.admin).create({
             "name": "Other TEQ Technician",
             "login": "teq.other.technician@example.com",
             "group_ids": [(6, 0, [self.calibration_user_group.id])],
         })
-        partner = self.env["res.partner"].with_user(self.admin).create({
-            "name": "Another Calibration Client",
-            "is_company": True,
-        })
-        equipment = self.env["teq.calibration.equipment"].with_user(self.admin).create({
-            "name": "Client Thermometer",
-            "ownership": "customer",
-            "partner_id": partner.id,
-            "company_id": self.env.company.id,
-        })
-        job = self.env["teq.calibration.job"].with_user(self.admin).create({
-            "partner_id": partner.id,
-            "equipment_id": equipment.id,
-            "technician_id": other_technician.id,
-            "company_id": self.env.company.id,
-            "state": "in_progress",
-        })
-        line = self.env["teq.calibration.result.line"].with_user(self.admin).create({
+        _partner, _equipment, job = self._new_job(other_technician, " 2")
+        self._start_job(job, other_technician)
+        line = self.env["teq.calibration.result.line"].with_user(other_technician).create({
             "job_id": job.id,
             "test_point": "20 C",
             "nominal_value": 20.0,
@@ -118,9 +108,43 @@ class TestTeqSecurityWorkflows(TransactionCase):
             "tolerance_min": 19.5,
             "tolerance_max": 20.5,
         })
-
         with self.assertRaises(Exception):
             line.with_user(self.technician).write({"measured_value": 20.1})
+
+    def test_client_context_cannot_bypass_calibration_workflow(self):
+        _partner, _equipment, job = self._new_job()
+        with self.assertRaises(UserError):
+            job.with_user(self.technician).with_context(
+                teq_calibration_workflow_transition=True
+            ).write({"state": "done"})
+        self.assertEqual(job.state, "draft")
+
+    def test_new_job_cannot_be_created_as_completed(self):
+        partner, equipment, _job = self._new_job(suffix=" create guard")
+        with self.assertRaises(UserError):
+            self.env["teq.calibration.job"].with_user(self.admin).create({
+                "partner_id": partner.id,
+                "equipment_id": equipment.id,
+                "technician_id": self.technician.id,
+                "company_id": self.env.company.id,
+                "state": "done",
+            })
+
+    def test_result_line_cannot_be_moved_between_jobs(self):
+        _p1, _e1, job1 = self._new_job(suffix=" A")
+        _p2, _e2, job2 = self._new_job(suffix=" B")
+        self._start_job(job1)
+        self._start_job(job2)
+        line = self.env["teq.calibration.result.line"].with_user(self.technician).create({
+            "job_id": job1.id,
+            "test_point": "10",
+            "nominal_value": 10,
+            "measured_value": 10,
+            "tolerance_min": 9,
+            "tolerance_max": 11,
+        })
+        with self.assertRaises(UserError):
+            line.with_user(self.admin).write({"job_id": job2.id})
 
     def test_employee_can_edit_only_own_appraisal_feedback(self):
         employee = self.employee_user.employee_id
@@ -132,12 +156,23 @@ class TestTeqSecurityWorkflows(TransactionCase):
             "period_to": "2026-06-30",
         })
         appraisal.with_user(self.appraisal_manager).action_employee_input()
-
         appraisal.with_user(self.employee_user).write({"employee_feedback": "Employee self-review."})
         with self.assertRaises(UserError):
             appraisal.with_user(self.employee_user).write({"rating": "5"})
         with self.assertRaises(UserError):
             appraisal.with_user(self.employee_user).write({"manager_feedback": "Not allowed."})
+
+    def test_appraisal_context_cannot_force_completion(self):
+        appraisal = self.env["teq.hr.appraisal"].with_user(self.appraisal_manager).create({
+            "employee_id": self.employee_user.employee_id.id,
+            "manager_id": self.appraisal_manager.employee_id.id,
+            "period_from": "2026-01-01",
+            "period_to": "2026-06-30",
+        })
+        with self.assertRaises(UserError):
+            appraisal.with_user(self.employee_user).with_context(
+                teq_appraisal_workflow_transition=True
+            ).write({"state": "done", "rating": "5"})
 
     def test_signed_request_is_immutable(self):
         request = self.env["teq.sign.request"].with_user(self.requester).create({
@@ -148,15 +183,37 @@ class TestTeqSecurityWorkflows(TransactionCase):
             "company_id": self.env.company.id,
         })
         request.with_user(self.requester).action_send()
-        request.with_user(self.signer).write({
-            "signature_image": base64.b64encode(b"signature"),
-        })
+        request.with_user(self.signer).write({"signature_image": base64.b64encode(b"signature")})
         request.with_user(self.signer).action_sign()
-
         with self.assertRaises(UserError):
             request.with_user(self.requester).write({"subject": "Changed after signing"})
         with self.assertRaises(UserError):
             request.with_user(self.requester).write({"state": "draft"})
+
+    def test_sign_manager_cannot_impersonate_assigned_signer(self):
+        request = self.env["teq.sign.request"].with_user(self.requester).create({
+            "subject": "Signer identity test",
+            "document": base64.b64encode(b"Identity controlled document"),
+            "signer_id": self.signer.id,
+            "company_id": self.env.company.id,
+        })
+        request.with_user(self.requester).action_send()
+        request.with_user(self.signer).write({"signature_image": base64.b64encode(b"real signer")})
+        with self.assertRaises(UserError):
+            request.with_user(self.admin).action_sign()
+        self.assertEqual(request.state, "sent")
+
+    def test_sign_context_cannot_spoof_signed_state(self):
+        request = self.env["teq.sign.request"].with_user(self.requester).create({
+            "subject": "Context bypass test",
+            "document": base64.b64encode(b"Document"),
+            "signer_id": self.signer.id,
+            "company_id": self.env.company.id,
+        })
+        with self.assertRaises(UserError):
+            request.with_user(self.requester).with_context(
+                teq_sign_workflow_transition=True
+            ).write({"state": "signed"})
 
     def test_access_profile_change_reapplies_managed_groups(self):
         profile = self.env["teq.access.profile"].with_user(self.admin).create({
@@ -169,6 +226,5 @@ class TestTeqSecurityWorkflows(TransactionCase):
             "teq_access_profile_ids": [(6, 0, [profile.id])],
         })
         self.assertIn(self.sign_user_group, user.group_ids)
-
         profile.with_user(self.admin).write({"group_ids": [(5, 0, 0)]})
         self.assertNotIn(self.sign_user_group, user.group_ids)

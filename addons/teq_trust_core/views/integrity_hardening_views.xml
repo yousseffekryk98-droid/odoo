@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_teq_calibration_job_form_integrity" model="ir.ui.view">
+        <field name="name">teq.calibration.job.form.integrity</field>
+        <field name="model">teq.calibration.job</field>
+        <field name="inherit_id" ref="teq_trust_core.view_teq_calibration_job_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='contact_id']" position="attributes">
+                <attribute name="domain">[('commercial_partner_id', '=', partner_id)]</attribute>
+                <attribute name="readonly">state not in ('draft','received')</attribute>
+            </xpath>
+            <xpath expr="//field[@name='partner_id']" position="attributes"><attribute name="readonly">state not in ('draft','received')</attribute></xpath>
+            <xpath expr="//field[@name='equipment_id']" position="attributes"><attribute name="readonly">state not in ('draft','received')</attribute></xpath>
+            <xpath expr="//field[@name='technician_id']" position="attributes"><attribute name="readonly">state not in ('draft','received')</attribute></xpath>
+            <xpath expr="//field[@name='reference_standard_ids']" position="attributes"><attribute name="readonly">state not in ('draft','received')</attribute></xpath>
+            <xpath expr="//field[@name='company_id']" position="attributes"><attribute name="readonly">state != 'draft'</attribute></xpath>
+            <xpath expr="//field[@name='result_line_ids']" position="attributes"><attribute name="readonly">state not in ('in_progress','review') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+            <xpath expr="//field[@name='customer_po']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+            <xpath expr="//field[@name='service_product_id']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+            <xpath expr="//field[@name='quoted_price']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+            <xpath expr="//field[@name='method']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+            <xpath expr="//field[@name='environmental_conditions']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+            <xpath expr="//field[@name='notes']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+        </field>
+    </record>
+
+    <record id="view_teq_sign_request_form_integrity" model="ir.ui.view">
+        <field name="name">teq.sign.request.form.integrity</field>
+        <field name="model">teq.sign.request</field>
+        <field name="inherit_id" ref="teq_trust_core.view_teq_sign_request_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='signed_at']" position="after">
+                <field name="document_sha256" readonly="1" invisible="not document_sha256"/>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <div class="alert alert-info mt-3" role="alert">TEQ Sign is an internal document approval and sign-off record. It does not by itself create a qualified or certificate-based digital signature.</div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_teq_calibration_job_search" model="ir.ui.view">
+        <field name="name">teq.calibration.job.search</field><field name="model">teq.calibration.job</field>
+        <field name="arch" type="xml"><search>
+            <field name="name"/><field name="partner_id"/><field name="equipment_id"/><field name="technician_id"/>
+            <filter name="my_jobs" string="My Jobs" domain="[('technician_id', '=', uid)]"/><separator/>
+            <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+            <filter name="in_progress" string="In Progress" domain="[('state', '=', 'in_progress')]"/>
+            <filter name="review" string="Quality Review" domain="[('state', '=', 'review')]"/>
+            <filter name="done" string="Calibrated" domain="[('state', '=', 'done')]"/>
+            <filter name="delivered" string="Delivered" domain="[('state', '=', 'delivered')]"/>
+            <group expand="0" string="Group By"><filter name="group_state" string="Status" context="{'group_by': 'state'}"/><filter name="group_technician" string="Technician" context="{'group_by': 'technician_id'}"/><filter name="group_customer" string="Customer" context="{'group_by': 'partner_id'}"/></group>
+        </search></field>
+    </record>
+
+    <record id="view_teq_sign_request_search" model="ir.ui.view">
+        <field name="name">teq.sign.request.search</field><field name="model">teq.sign.request</field>
+        <field name="arch" type="xml"><search>
+            <field name="name"/><field name="subject"/><field name="requester_id"/><field name="signer_id"/>
+            <filter name="to_sign" string="To Sign" domain="[('signer_id', '=', uid), ('state', '=', 'sent')]"/><filter name="my_requests" string="My Requests" domain="[('requester_id', '=', uid)]"/><separator/>
+            <filter name="waiting" string="Waiting" domain="[('state', '=', 'sent')]"/><filter name="signed" string="Signed" domain="[('state', '=', 'signed')]"/><filter name="refused" string="Refused" domain="[('state', '=', 'refused')]"/>
+            <group expand="0" string="Group By"><filter name="group_state" string="Status" context="{'group_by': 'state'}"/><filter name="group_signer" string="Signer" context="{'group_by': 'signer_id'}"/></group>
+        </search></field>
+    </record>
+
+    <record id="view_teq_appraisal_search" model="ir.ui.view">
+        <field name="name">teq.hr.appraisal.search</field><field name="model">teq.hr.appraisal</field>
+        <field name="arch" type="xml"><search>
+            <field name="employee_id"/><field name="manager_id"/>
+            <filter name="employee_input" string="Employee Input" domain="[('state', '=', 'employee')]"/><filter name="manager_review" string="Manager Review" domain="[('state', '=', 'manager')]"/><filter name="completed" string="Completed" domain="[('state', '=', 'done')]"/>
+            <group expand="0" string="Group By"><filter name="group_state" string="Status" context="{'group_by': 'state'}"/><filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/></group>
+        </search></field>
+    </record>
+
+    <record id="view_teq_esg_metric_search" model="ir.ui.view">
+        <field name="name">teq.esg.metric.search</field><field name="model">teq.esg.metric</field>
+        <field name="arch" type="xml"><search>
+            <field name="name"/><field name="category"/><field name="responsible_id"/>
+            <filter name="on_track" string="On Track" domain="[('status', '=', 'on_track')]"/><filter name="watch" string="Watch" domain="[('status', '=', 'watch')]"/><filter name="off_track" string="Off Track" domain="[('status', '=', 'off_track')]"/>
+            <group expand="0" string="Group By"><filter name="group_category" string="Category" context="{'group_by': 'category'}"/><filter name="group_status" string="Status" context="{'group_by': 'status'}"/><filter name="group_responsible" string="Responsible" context="{'group_by': 'responsible_id'}"/></group>
+        </search></field>
+    </record>
+
+    <record id="action_teq_calibration_jobs" model="ir.actions.act_window"><field name="search_view_id" ref="teq_trust_core.view_teq_calibration_job_search"/></record>
+    <record id="action_teq_sign_request" model="ir.actions.act_window"><field name="search_view_id" ref="teq_trust_core.view_teq_sign_request_search"/></record>
+    <record id="action_teq_hr_appraisal" model="ir.actions.act_window"><field name="search_view_id" ref="teq_trust_core.view_teq_appraisal_search"/></record>
+    <record id="action_teq_esg_metric" model="ir.actions.act_window"><field name="search_view_id" ref="teq_trust_core.view_teq_esg_metric_search"/></record>
+</odoo>
