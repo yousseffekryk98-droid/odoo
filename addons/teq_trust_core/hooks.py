@@ -23,4 +23,4 @@ def post_init_hook(env):
     for user in admin_users:
         user.sudo().write({"group_ids": [(4, group.id) for group in full_groups]})
 
-    env["teq.access.profile"]._teq_seed_default_profiles()
+    env["teq.access.profile"].teq_seed_default_profiles()

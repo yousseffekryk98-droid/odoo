@@ -38,7 +38,7 @@ class TeqAccessProfile(models.Model):
         return True
 
     @api.model
-    def _teq_seed_default_profiles(self):
+    def teq_seed_default_profiles(self):
         helper = self.env["teq.access.profile.mixin"]
         highest_groups = helper._teq_select_highest_groups()
         master_group = self.env.ref("teq_trust_core.group_teq_master_admin")
@@ -54,6 +54,7 @@ class TeqAccessProfile(models.Model):
             "Sales User - All Documents": ["sales_team.group_sale_salesman_all_leads"],
             "Sales & CRM Manager": ["sales_team.group_sale_manager"],
             "Invoicing / Billing User": ["account.group_account_invoice"],
+            "Accounting Read-only / Auditor": ["account.group_account_readonly"],
             "Finance Manager": ["account.group_account_manager"],
             "Inventory User": ["stock.group_stock_user"],
             "Purchase User": ["purchase.group_purchase_user"],
@@ -68,6 +69,16 @@ class TeqAccessProfile(models.Model):
                 "hr_expense.group_hr_expense_manager",
                 "teq_trust_core.group_teq_appraisal_manager",
             ],
+            "Time Off Officer": ["hr_holidays.group_hr_holidays_user"],
+            "Time Off Manager": ["hr_holidays.group_hr_holidays_manager"],
+            "Expense Team Approver": ["hr_expense.group_hr_expense_team_approver"],
+            "Expense All Approver": ["hr_expense.group_hr_expense_user"],
+            "Expense Manager": ["hr_expense.group_hr_expense_manager"],
+            "Fleet Officer": ["fleet.fleet_group_user"],
+            "Fleet Manager": ["fleet.fleet_group_manager"],
+            "Maintenance Equipment Manager": ["maintenance.group_equipment_manager"],
+            "Survey User": ["survey.group_survey_user"],
+            "Survey Manager": ["survey.group_survey_manager"],
             "Point of Sale User": ["point_of_sale.group_pos_user"],
             "Point of Sale Manager": ["point_of_sale.group_pos_manager"],
             "Projects & Services User": ["project.group_project_user"],
