@@ -10,8 +10,9 @@
                 <field name="name"/>
                 <field name="value"/>
                 <field name="unit"/>
-                <field name="target"/>
-                <field name="target_direction" optional="show"/>
+                <field name="target_enabled" optional="show"/>
+                <field name="target" invisible="not target_enabled"/>
+                <field name="target_direction" optional="show" invisible="not target_enabled"/>
                 <field name="performance"/>
                 <field name="status" widget="badge"/>
                 <field name="responsible_id"/>
@@ -37,8 +38,9 @@
                         <group>
                             <field name="value"/>
                             <field name="unit"/>
-                            <field name="target"/>
-                            <field name="target_direction"/>
+                            <field name="target_enabled"/>
+                            <field name="target" invisible="not target_enabled"/>
+                            <field name="target_direction" invisible="not target_enabled"/>
                             <field name="performance" readonly="1"/>
                             <field name="status" widget="badge" readonly="1"/>
                         </group>
