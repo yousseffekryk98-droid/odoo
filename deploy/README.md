@@ -37,6 +37,8 @@ This folder contains the Docker deployment for the `teq-trust-egypt-erp` branch.
 
 The TEQ installer uses database name `teq_trust` by default and installs the Odoo dependencies declared by `teq_trust_core`.
 
+`init.sh` is safe to run again after pulling updates. It stops the normal Odoo process before changing module/database schema, detects whether the TEQ module is already installed, installs it when missing, upgrades it when present, and then starts Odoo again.
+
 ## Normal operation
 
 Start/restart:
@@ -65,6 +67,30 @@ docker compose --env-file deploy/.env -f docker-compose.teq.yml down
 
 Do not add `-v` to `down` unless you intentionally want to delete the PostgreSQL and Odoo persistent volumes.
 
+## Updating TEQ code
+
+Use the same idempotent installer for upgrades:
+
+```bash
+git checkout teq-trust-egypt-erp
+git pull
+bash deploy/scripts/init.sh
+```
+
+This is preferred over running `odoo -u` manually while the normal Odoo container is still serving users.
+
+## Tests
+
+Run TEQ tests in an isolated temporary database:
+
+```bash
+bash deploy/scripts/test.sh
+```
+
+The test runner does **not** use the configured production database. It creates a temporary database, installs the TEQ module, runs `/teq_trust_core` tests, then removes the temporary database and its filestore.
+
+The branch also runs this suite through GitHub Actions on pushes to `teq-trust-egypt-erp`.
+
 ## Backups
 
 Create a PostgreSQL dump and matching Odoo filestore archive:
@@ -72,6 +98,8 @@ Create a PostgreSQL dump and matching Odoo filestore archive:
 ```bash
 bash deploy/scripts/backup.sh
 ```
+
+For consistency, the backup script briefly stops the Odoo application if it is running, captures the PostgreSQL database and only that database's filestore, then restarts Odoo. Partial backup files are not promoted to final backup names if a command fails.
 
 Backups are written to `deploy/backups/` and are ignored by Git. The default retention period is 14 days and can be changed in `deploy/.env`.
 
@@ -87,7 +115,7 @@ bash deploy/scripts/restore.sh \
   deploy/backups/teq_trust_YYYYMMDD_HHMMSS_filestore.tar.gz
 ```
 
-The restore script replaces the configured TEQ database and filestore. Use it only with verified backup files.
+The restore script stops Odoo, replaces the configured TEQ database and that database's filestore, upgrades the restored `teq_trust_core` module to the checked-out branch version, and only then restarts Odoo. Use it only with verified backup files.
 
 ## Production reverse proxy
 
@@ -105,22 +133,12 @@ For a public production server:
 
 The template starts with `ODOO_WORKERS=0` to simplify first installation and troubleshooting. After the first successful functional test, set the worker count based on the actual CPU/RAM available on the TEQ server and run load tests before production use.
 
-## Updating TEQ code
-
-```bash
-git checkout teq-trust-egypt-erp
-git pull
-docker compose --env-file deploy/.env -f docker-compose.teq.yml run --rm --no-deps odoo \
-  -d teq_trust -u teq_trust_core --stop-after-init
-docker compose --env-file deploy/.env -f docker-compose.teq.yml up -d
-```
-
-If `ODOO_DB_NAME` is changed from `teq_trust`, replace the database name in the update command accordingly.
-
 ## Security notes
 
 - `deploy/.env` is ignored by Git and must never be committed.
 - Never use the example passwords from `env.example`.
+- The generated Odoo configuration is created with restrictive filesystem permissions because it contains database credentials and the Odoo master password.
 - The Odoo database master password is different from an Odoo user login password.
 - Back up both PostgreSQL and the Odoo filestore; one without the other is incomplete.
+- Keep at least one verified backup outside the ERP host.
 - Test restore procedures before depending on backups for production.
