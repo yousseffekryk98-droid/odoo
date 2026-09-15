@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_teq_departments" model="ir.actions.act_window">
+        <field name="name">Departments</field>
+        <field name="res_model">hr.department</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_teq_job_positions" model="ir.actions.act_window">
+        <field name="name">Job Positions</field>
+        <field name="res_model">hr.job</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_teq_companies" model="ir.actions.act_window">
+        <field name="name">Companies</field>
+        <field name="res_model">res.company</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_teq_departments" name="Departments"
+              parent="teq_trust_core.menu_teq_administration_root"
+              action="teq_trust_core.action_teq_departments" sequence="21"
+              groups="teq_trust_core.group_teq_master_admin"/>
+    <menuitem id="menu_teq_job_positions" name="Job Positions"
+              parent="teq_trust_core.menu_teq_administration_root"
+              action="teq_trust_core.action_teq_job_positions" sequence="22"
+              groups="teq_trust_core.group_teq_master_admin"/>
+    <menuitem id="menu_teq_companies" name="Companies"
+              parent="teq_trust_core.menu_teq_administration_root"
+              action="teq_trust_core.action_teq_companies" sequence="23"
+              groups="teq_trust_core.group_teq_master_admin"/>
+</odoo>
