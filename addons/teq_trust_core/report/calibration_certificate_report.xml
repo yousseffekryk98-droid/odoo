@@ -1,5 +1,139 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="action_report_teq_calibration_certificate" model="ir.actions.report"><field name="name">Calibration Certificate</field><field name="model">teq.calibration.certificate</field><field name="report_type">qweb-pdf</field><field name="report_name">teq_trust_core.report_calibration_certificate</field><field name="report_file">teq_trust_core.report_calibration_certificate</field><field name="print_report_name">'Calibration Certificate - %s' % (object.name)</field><field name="binding_model_id" ref="model_teq_calibration_certificate"/><field name="binding_type">report</field></record>
-    <template id="report_calibration_certificate"><t t-call="web.html_container"><t t-foreach="docs" t-as="o"><t t-call="web.external_layout"><div class="page"><h2>TEQ Trust Egypt for Quality</h2><h3>Calibration Certificate: <span t-field="o.name"/></h3><table class="table table-sm"><tbody><tr><th>Customer</th><td><span t-field="o.partner_id"/></td><th>Calibration Date</th><td><span t-field="o.calibration_date"/></td></tr><tr><th>Instrument</th><td><span t-field="o.equipment_id"/></td><th>Valid Until</th><td><span t-field="o.valid_until"/></td></tr><tr><th>Serial Number</th><td><span t-field="o.equipment_id.serial_number"/></td><th>Result</th><td><span t-field="o.result"/></td></tr><tr><th>Manufacturer / Model</th><td><span t-field="o.equipment_id.manufacturer"/> / <span t-field="o.equipment_id.model"/></td><th>Method</th><td><span t-field="o.job_id.method"/></td></tr><tr><th>Environmental Conditions</th><td colspan="3"><span t-field="o.job_id.environmental_conditions"/></td></tr></tbody></table><h4>Reference Standards</h4><table class="table table-sm"><thead><tr><th>Standard</th><th>Equipment ID</th><th>Certificate</th><th>Due Date</th></tr></thead><tbody><tr t-foreach="o.job_id.reference_standard_ids" t-as="standard"><td><span t-field="standard.name"/></td><td><span t-field="standard.equipment_code"/></td><td><span t-field="standard.reference_certificate_no"/></td><td><span t-field="standard.next_due_date"/></td></tr></tbody></table><h4>Calibration Results</h4><table class="table table-sm"><thead><tr><th>Test Point</th><th>Nominal</th><th>Measured</th><th>Deviation</th><th>Uncertainty</th><th>Tolerance</th><th>Result</th></tr></thead><tbody><tr t-foreach="o.job_id.result_line_ids" t-as="line"><td><span t-field="line.test_point"/></td><td><span t-field="line.nominal_value"/> <span t-field="line.unit"/></td><td><span t-field="line.measured_value"/> <span t-field="line.unit"/></td><td><span t-field="line.deviation"/></td><td><span t-field="line.uncertainty"/></td><td><span t-field="line.tolerance_min"/> - <span t-field="line.tolerance_max"/></td><td><span t-field="line.outcome"/></td></tr></tbody></table><div t-field="o.statement"/><p t-if="o.approved_by">Approved by: <strong><span t-field="o.approved_by"/></strong><br/>Approved at: <span t-field="o.approved_at"/></p></div></t></t></t></template>
+    <record id="action_report_teq_calibration_certificate" model="ir.actions.report">
+        <field name="name">Calibration Certificate</field>
+        <field name="model">teq.calibration.certificate</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">teq_trust_core.report_calibration_certificate</field>
+        <field name="report_file">teq_trust_core.report_calibration_certificate</field>
+        <field name="print_report_name">'Calibration Certificate - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_teq_calibration_certificate"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_calibration_certificate">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div t-if="o.state != 'approved'"
+                             style="border: 3px solid #b42318; color: #b42318; text-align: center; font-size: 24px; font-weight: bold; padding: 8px; margin-bottom: 14px;">
+                            <span t-if="o.state == 'draft'">DRAFT — NOT AN APPROVED CERTIFICATE</span>
+                            <span t-if="o.state == 'void'">VOID — CERTIFICATE NOT VALID</span>
+                        </div>
+
+                        <h2><span t-field="o.company_id.name"/></h2>
+                        <h3>Calibration Certificate: <span t-field="o.name"/></h3>
+
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <th>Certificate Status</th>
+                                    <td><span t-field="o.state"/></td>
+                                    <th>Calibration Date</th>
+                                    <td><span t-field="o.calibration_date"/></td>
+                                </tr>
+                                <tr>
+                                    <th>Customer</th>
+                                    <td><span t-field="o.partner_id"/></td>
+                                    <th>Valid Until</th>
+                                    <td><span t-field="o.valid_until"/></td>
+                                </tr>
+                                <tr>
+                                    <th>Instrument</th>
+                                    <td><span t-field="o.equipment_id"/></td>
+                                    <th>Result</th>
+                                    <td><span t-field="o.result"/></td>
+                                </tr>
+                                <tr>
+                                    <th>Equipment ID</th>
+                                    <td><span t-field="o.equipment_id.equipment_code"/></td>
+                                    <th>Serial Number</th>
+                                    <td><span t-field="o.equipment_id.serial_number"/></td>
+                                </tr>
+                                <tr>
+                                    <th>Manufacturer / Model</th>
+                                    <td><span t-field="o.equipment_id.manufacturer"/> / <span t-field="o.equipment_id.model"/></td>
+                                    <th>Range / Resolution</th>
+                                    <td><span t-field="o.equipment_id.range_text"/> / <span t-field="o.equipment_id.resolution"/></td>
+                                </tr>
+                                <tr>
+                                    <th>Calibration Method</th>
+                                    <td><span t-field="o.job_id.method"/></td>
+                                    <th>Job Reference</th>
+                                    <td><span t-field="o.job_id.name"/></td>
+                                </tr>
+                                <tr>
+                                    <th>Environmental Conditions</th>
+                                    <td colspan="3"><span t-field="o.job_id.environmental_conditions"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Reference Standards / Traceability</h4>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Standard</th>
+                                    <th>Equipment ID</th>
+                                    <th>Certificate</th>
+                                    <th>Traceability Lab</th>
+                                    <th>Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.job_id.reference_standard_ids" t-as="standard">
+                                    <td><span t-field="standard.name"/></td>
+                                    <td><span t-field="standard.equipment_code"/></td>
+                                    <td><span t-field="standard.reference_certificate_no"/></td>
+                                    <td><span t-field="standard.traceability_lab"/></td>
+                                    <td><span t-field="standard.next_due_date"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>Calibration Results</h4>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Test Point</th>
+                                    <th>Nominal</th>
+                                    <th>Measured</th>
+                                    <th>Deviation</th>
+                                    <th>Uncertainty</th>
+                                    <th>Tolerance</th>
+                                    <th>Result</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.job_id.result_line_ids" t-as="line">
+                                    <td><span t-field="line.test_point"/></td>
+                                    <td><span t-field="line.nominal_value"/> <span t-field="line.unit"/></td>
+                                    <td><span t-field="line.measured_value"/> <span t-field="line.unit"/></td>
+                                    <td><span t-field="line.deviation"/> <span t-field="line.unit"/></td>
+                                    <td><span t-field="line.uncertainty"/> <span t-field="line.unit"/></td>
+                                    <td><span t-field="line.tolerance_min"/> - <span t-field="line.tolerance_max"/> <span t-field="line.unit"/></td>
+                                    <td><span t-field="line.outcome"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div t-field="o.statement"/>
+
+                        <div t-if="o.state == 'approved' and o.approved_by" style="margin-top: 18px;">
+                            <p>
+                                Approved by: <strong><span t-field="o.approved_by"/></strong><br/>
+                                Approved at: <span t-field="o.approved_at"/>
+                            </p>
+                        </div>
+
+                        <div t-if="o.state == 'void'" style="margin-top: 18px; color: #b42318;">
+                            <strong>Void reason:</strong>
+                            <span t-field="o.void_reason"/>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
 </odoo>
