@@ -32,20 +32,42 @@ DB_USER="${POSTGRES_USER:-odoo}"
 cd "${ROOT_DIR}"
 
 echo "Stopping Odoo..."
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" stop odoo || true
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" stop odoo >/dev/null 2>&1 || true
+
+echo "Starting PostgreSQL..."
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d db >/dev/null
+for _attempt in $(seq 1 30); do
+  if docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
+    pg_isready -U "${DB_USER}" -d postgres >/dev/null 2>&1; then
+    break
+  fi
+  if [[ "${_attempt}" == "30" ]]; then
+    echo "PostgreSQL did not become ready for restore." >&2
+    exit 1
+  fi
+  sleep 2
+done
 
 echo "Recreating database ${DB_NAME}..."
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d db
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
-  psql -U "${DB_USER}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${DB_NAME}' AND pid <> pg_backend_pid();" >/dev/null
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db dropdb -U "${DB_USER}" --if-exists "${DB_NAME}"
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db createdb -U "${DB_USER}" "${DB_NAME}"
-cat "${DB_DUMP}" | docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
-  pg_restore -U "${DB_USER}" -d "${DB_NAME}" --clean --if-exists --no-owner --no-privileges
+  psql -U "${DB_USER}" -d postgres -c \
+  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${DB_NAME}' AND pid <> pg_backend_pid();" >/dev/null
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
+  dropdb -U "${DB_USER}" --if-exists "${DB_NAME}"
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
+  createdb -U "${DB_USER}" "${DB_NAME}"
 
-echo "Restoring filestore..."
+cat "${DB_DUMP}" | docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
+  pg_restore -U "${DB_USER}" -d "${DB_NAME}" --no-owner --no-privileges --exit-on-error
+
+echo "Restoring filestore for ${DB_NAME}..."
 cat "${FILESTORE_ARCHIVE}" | docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run -T --rm --no-deps \
-  --entrypoint /bin/bash odoo -c "rm -rf /var/lib/odoo/filestore && mkdir -p /var/lib/odoo && tar -C /var/lib/odoo -xzf -"
+  --entrypoint /bin/bash odoo -c \
+  "rm -rf '/var/lib/odoo/filestore/${DB_NAME}' && mkdir -p /var/lib/odoo/filestore && tar -C /var/lib/odoo -xzf -"
+
+echo "Upgrading TEQ module against the restored database..."
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm --no-deps odoo \
+  -d "${DB_NAME}" -u teq_trust_core --without-demo=all --stop-after-init
 
 echo "Starting TEQ ERP..."
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
