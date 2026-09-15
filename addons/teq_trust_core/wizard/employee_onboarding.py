@@ -20,8 +20,16 @@ class TeqEmployeeOnboarding(models.TransientModel):
     initial_password = fields.Char(string="Initial Password")
     confirm_password = fields.Char(string="Confirm Password")
     job_title = fields.Char(string="Job Title")
-    department_id = fields.Many2one("hr.department", string="Department")
-    manager_id = fields.Many2one("hr.employee", string="Manager")
+    department_id = fields.Many2one(
+        "hr.department",
+        string="Department",
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]",
+    )
+    manager_id = fields.Many2one(
+        "hr.employee",
+        string="Manager",
+        domain="[('company_id', '=', company_id)]",
+    )
     company_id = fields.Many2one(
         "res.company",
         string="Company",
@@ -40,6 +48,13 @@ class TeqEmployeeOnboarding(models.TransientModel):
         if self.email and not self.login:
             self.login = self.email
 
+    @api.onchange("company_id")
+    def _onchange_company_id(self):
+        if self.department_id and self.department_id.company_id not in (False, self.company_id):
+            self.department_id = False
+        if self.manager_id and self.manager_id.company_id != self.company_id:
+            self.manager_id = False
+
     @api.constrains("create_login", "login", "initial_password", "confirm_password")
     def _check_login_credentials(self):
         for wizard in self:
@@ -51,6 +66,14 @@ class TeqEmployeeOnboarding(models.TransientModel):
                 raise ValidationError(_("The initial password must contain at least 8 characters."))
             if wizard.initial_password != wizard.confirm_password:
                 raise ValidationError(_("The password confirmation does not match."))
+
+    @api.constrains("company_id", "department_id", "manager_id")
+    def _check_company_relationships(self):
+        for wizard in self:
+            if wizard.department_id.company_id and wizard.department_id.company_id != wizard.company_id:
+                raise ValidationError(_("The department must belong to the selected company."))
+            if wizard.manager_id and wizard.manager_id.company_id != wizard.company_id:
+                raise ValidationError(_("The manager must belong to the selected company."))
 
     def _check_master_admin(self):
         if not self.env.user.has_group("teq_trust_core.group_teq_master_admin"):
@@ -70,38 +93,43 @@ class TeqEmployeeOnboarding(models.TransientModel):
                 raise UserError(_("A user with login '%s' already exists.") % login)
 
             internal_group = self.env.ref("base.group_user")
-            user = User.create({
-                "name": self.name.strip(),
-                "login": login,
-                "email": email or False,
-                "phone": self.phone or False,
-                "company_id": self.company_id.id,
-                "company_ids": [(6, 0, [self.company_id.id])],
-                "group_ids": [(4, internal_group.id)],
-                "password": self.initial_password,
-                "create_employee": True,
-                "teq_access_profile_ids": [(6, 0, self.access_profile_ids.ids)],
-            })
+            user = User.create(
+                {
+                    "name": self.name.strip(),
+                    "login": login,
+                    "email": email or False,
+                    "phone": self.phone or False,
+                    "company_id": self.company_id.id,
+                    "company_ids": [(6, 0, [self.company_id.id])],
+                    "group_ids": [(4, internal_group.id)],
+                    "password": self.initial_password,
+                    "create_employee": True,
+                    "teq_access_profile_ids": [(6, 0, self.access_profile_ids.ids)],
+                }
+            )
             employee = user.employee_id
         else:
-            employee = self.env["hr.employee"].create({
-                "name": self.name.strip(),
-                "company_id": self.company_id.id,
-                "work_email": email or False,
-                "work_phone": self.phone or False,
-            })
+            employee = self.env["hr.employee"].create(
+                {
+                    "name": self.name.strip(),
+                    "company_id": self.company_id.id,
+                    "work_email": email or False,
+                    "work_phone": self.phone or False,
+                }
+            )
 
         if not employee:
             raise UserError(_("The employee record could not be created."))
 
-        employee_values = {
-            "job_title": self.job_title or False,
-            "department_id": self.department_id.id or False,
-            "parent_id": self.manager_id.id or False,
-            "work_email": email or False,
-            "work_phone": self.phone or False,
-        }
-        employee.write(employee_values)
+        employee.write(
+            {
+                "job_title": self.job_title or False,
+                "department_id": self.department_id.id or False,
+                "parent_id": self.manager_id.id or False,
+                "work_email": email or False,
+                "work_phone": self.phone or False,
+            }
+        )
 
         if self.create_login:
             return {
