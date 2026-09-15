@@ -19,6 +19,22 @@ class TeqSignRequestUiSecurity(models.Model):
             record.can_requester_edit = is_manager or record.requester_id == self.env.user
 
 
+class TeqCalibrationEquipmentUiSafety(models.Model):
+    _inherit = "teq.calibration.equipment"
+
+    @api.onchange("ownership")
+    def _onchange_teq_ownership(self):
+        # partner_id is hidden for TEQ reference standards. Clear an old customer
+        # automatically so switching ownership cannot leave an invisible invalid value.
+        if self.ownership == "teq_standard":
+            self.partner_id = False
+
+    @api.onchange("company_id")
+    def _onchange_teq_equipment_company(self):
+        if self.assigned_user_id and self.company_id not in self.assigned_user_id.company_ids:
+            self.assigned_user_id = False
+
+
 class TeqEmployeeOnboardingValidation(models.TransientModel):
     _inherit = "teq.employee.onboarding"
 
