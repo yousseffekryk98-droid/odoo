@@ -50,7 +50,11 @@ class TeqEmployeeOnboarding(models.TransientModel):
 
     @api.onchange("company_id")
     def _onchange_company_id(self):
-        if self.department_id and self.department_id.company_id not in (False, self.company_id):
+        if (
+            self.department_id
+            and self.department_id.company_id
+            and self.department_id.company_id != self.company_id
+        ):
             self.department_id = False
         if self.manager_id and self.manager_id.company_id != self.company_id:
             self.manager_id = False
