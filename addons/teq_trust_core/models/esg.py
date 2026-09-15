@@ -20,6 +20,12 @@ class TeqEsgMetric(models.Model):
     )
     value = fields.Float(required=True, tracking=True)
     unit = fields.Char(required=True)
+    target_enabled = fields.Boolean(
+        string="Track Against Target",
+        default=False,
+        tracking=True,
+        help="Enable this when the metric has an explicit target. This allows zero to be a valid target.",
+    )
     target = fields.Float(tracking=True)
     target_direction = fields.Selection(
         [("higher", "Higher is Better"), ("lower", "Lower is Better")],
@@ -43,27 +49,42 @@ class TeqEsgMetric(models.Model):
     notes = fields.Html()
     company_id = fields.Many2one("res.company", default=lambda self: self.env.company, required=True)
 
-    @api.depends("value", "target", "target_direction")
+    @api.model
+    def teq_backfill_target_flags(self):
+        """Preserve existing non-zero targets when upgrading from earlier TEQ versions."""
+        self.sudo().search([("target", "!=", 0), ("target_enabled", "=", False)]).write(
+            {"target_enabled": True}
+        )
+        return True
+
+    @api.depends("value", "target", "target_direction", "target_enabled")
     def _compute_performance(self):
         for record in self:
-            if not record.target:
+            if not record.target_enabled:
                 record.performance = 0.0
                 record.status = "watch"
                 continue
 
             if record.target_direction == "lower":
-                if record.value <= 0:
-                    record.performance = 100.0 if record.value <= record.target else 0.0
+                if record.target == 0:
+                    record.performance = 100.0 if record.value <= 0 else 0.0
+                elif record.value <= 0:
+                    record.performance = 100.0
                 else:
                     record.performance = (record.target / record.value) * 100.0
+
                 if record.value <= record.target:
                     record.status = "on_track"
-                elif record.value <= record.target * 1.2:
+                elif record.target > 0 and record.value <= record.target * 1.2:
                     record.status = "watch"
                 else:
                     record.status = "off_track"
             else:
-                record.performance = (record.value / record.target) * 100.0
+                if record.target == 0:
+                    record.performance = 100.0 if record.value >= 0 else 0.0
+                else:
+                    record.performance = (record.value / record.target) * 100.0
+
                 if record.performance >= 100:
                     record.status = "on_track"
                 elif record.performance >= 80:
