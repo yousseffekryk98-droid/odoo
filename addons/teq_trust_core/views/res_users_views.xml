@@ -26,4 +26,16 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_users_list_teq_access" model="ir.ui.view">
+        <field name="name">res.users.list.teq.access</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='role']" position="after">
+                <field name="teq_access_profile_ids" string="TEQ Roles"
+                       widget="many2many_tags" optional="show"/>
+            </xpath>
+        </field>
+    </record>
 </odoo>

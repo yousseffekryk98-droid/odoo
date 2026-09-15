@@ -48,7 +48,10 @@ class ResUsers(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if any("teq_access_profile_ids" in values for values in vals_list):
+        if any(
+            "teq_access_profile_ids" in values or "teq_managed_group_ids" in values
+            for values in vals_list
+        ):
             self._teq_check_master_admin()
         users = super().create(vals_list)
         users_to_apply = users.filtered("teq_access_profile_ids")
@@ -58,7 +61,8 @@ class ResUsers(models.Model):
 
     def write(self, values):
         profile_change = "teq_access_profile_ids" in values
-        if profile_change:
+        managed_change = "teq_managed_group_ids" in values
+        if profile_change or managed_change:
             self._teq_check_master_admin()
         result = super().write(values)
         if profile_change:
