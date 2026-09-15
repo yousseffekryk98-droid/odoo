@@ -29,13 +29,34 @@ class TeqAccessProfile(models.Model):
         readonly=True,
     )
 
+    def _check_master_admin(self):
+        if not self.env.user.has_group("teq_trust_core.group_teq_master_admin"):
+            raise UserError(_("Only a TEQ Master Administrator can manage access profiles."))
+
     def action_apply_to_users(self):
         self.ensure_one()
-        if not self.env.user.has_group("teq_trust_core.group_teq_master_admin"):
-            raise UserError(_("Only a TEQ Master Administrator can apply access profiles."))
-        for user in self.user_ids:
-            user._teq_apply_access_profiles()
+        self._check_master_admin()
+        if self.user_ids:
+            self.user_ids._teq_apply_access_profiles()
         return True
+
+    def write(self, vals):
+        if set(vals) & {"active", "group_ids"}:
+            self._check_master_admin()
+            affected_users = self.mapped("user_ids")
+            result = super().write(vals)
+            if affected_users:
+                affected_users._teq_apply_access_profiles()
+            return result
+        return super().write(vals)
+
+    def unlink(self):
+        self._check_master_admin()
+        affected_users = self.mapped("user_ids")
+        result = super().unlink()
+        if affected_users:
+            affected_users._teq_apply_access_profiles()
+        return result
 
     @api.model
     def teq_seed_default_profiles(self):
