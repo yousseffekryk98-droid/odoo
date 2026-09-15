@@ -1,6 +1,6 @@
 # Part of TEQ Trust Egypt for Quality.
 
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
 
@@ -12,7 +12,7 @@ class ResUsers(models.Model):
         "teq_access_profile_user_rel",
         "user_id",
         "profile_id",
-        string="TEQ Access Profiles",
+        string="TEQ Roles / Access Profiles",
         help="Reusable TEQ role bundles. Their Odoo groups are managed on this user.",
     )
     teq_managed_group_ids = fields.Many2many(
@@ -46,16 +46,31 @@ class ResUsers(models.Model):
             user.sudo().write({"teq_managed_group_ids": [(6, 0, target_groups.ids)]})
         return True
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        if any("teq_access_profile_ids" in values for values in vals_list):
+            self._teq_check_master_admin()
+        users = super().create(vals_list)
+        users_to_apply = users.filtered("teq_access_profile_ids")
+        if users_to_apply:
+            users_to_apply._teq_apply_access_profiles()
+        return users
+
+    def write(self, values):
+        profile_change = "teq_access_profile_ids" in values
+        if profile_change:
+            self._teq_check_master_admin()
+        result = super().write(values)
+        if profile_change:
+            self._teq_apply_access_profiles()
+        return result
+
     def action_teq_apply_access_profiles(self):
         return self._teq_apply_access_profiles()
 
     def action_teq_clear_managed_access(self):
         self._teq_check_master_admin()
-        for user in self:
-            commands = [(3, group.id) for group in user.teq_managed_group_ids]
-            if commands:
-                user.sudo().write({"group_ids": commands})
-            user.sudo().write({"teq_managed_group_ids": [(5, 0, 0)]})
+        self.write({"teq_access_profile_ids": [(5, 0, 0)]})
         return True
 
     def action_teq_grant_full_access(self):
@@ -64,8 +79,14 @@ class ResUsers(models.Model):
         highest_groups = helper._teq_select_highest_groups()
         system_group = self.env.ref("base.group_system")
         master_group = self.env.ref("teq_trust_core.group_teq_master_admin")
+        target_groups = highest_groups | system_group | master_group
         for user in self:
-            commands = [(4, group.id) for group in highest_groups]
-            commands += [(4, system_group.id), (4, master_group.id)]
-            user.sudo().write({"group_ids": commands})
+            previous_groups = user.teq_managed_group_ids
+            to_remove = previous_groups - target_groups
+            commands = [(3, group.id) for group in to_remove]
+            commands += [(4, group.id) for group in target_groups]
+            user.sudo().write({
+                "group_ids": commands,
+                "teq_managed_group_ids": [(6, 0, target_groups.ids)],
+            })
         return True

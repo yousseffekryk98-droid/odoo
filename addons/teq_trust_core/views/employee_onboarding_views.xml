@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_teq_employee_onboarding_form" model="ir.ui.view">
+        <field name="name">teq.employee.onboarding.form</field>
+        <field name="model">teq.employee.onboarding</field>
+        <field name="arch" type="xml">
+            <form string="Onboard Employee">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Employee &amp; Login Setup</h1>
+                        <p class="text-muted">
+                            Create the employee record, Odoo login, initial password, and TEQ roles in one place.
+                        </p>
+                    </div>
+                    <group>
+                        <group string="Employee">
+                            <field name="name"/>
+                            <field name="job_title"/>
+                            <field name="department_id"/>
+                            <field name="manager_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="email"/>
+                            <field name="phone"/>
+                        </group>
+                        <group string="System Access">
+                            <field name="create_login"/>
+                            <field name="login" invisible="not create_login" required="create_login"/>
+                            <field name="initial_password" password="True"
+                                   invisible="not create_login" required="create_login"/>
+                            <field name="confirm_password" password="True"
+                                   invisible="not create_login" required="create_login"/>
+                            <field name="access_profile_ids" widget="many2many_tags"
+                                   invisible="not create_login"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_employee" type="object"
+                            string="Create Employee" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_teq_employee_onboarding" model="ir.actions.act_window">
+        <field name="name">Onboard Employee</field>
+        <field name="res_model">teq.employee.onboarding</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_teq_user_accounts" model="ir.actions.act_window">
+        <field name="name">User Accounts &amp; Passwords</field>
+        <field name="res_model">res.users</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('share', '=', False)]</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
+    <record id="action_teq_employees" model="ir.actions.act_window">
+        <field name="name">Employees</field>
+        <field name="res_model">hr.employee</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="action_teq_system_settings" model="ir.actions.act_window">
+        <field name="name">System Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'teq_trust_core'}</field>
+    </record>
+
+    <menuitem id="menu_teq_onboard_employee"
+              name="Onboard Employee"
+              parent="teq_trust_core.menu_teq_administration_root"
+              action="teq_trust_core.action_teq_employee_onboarding"
+              sequence="5"
+              groups="teq_trust_core.group_teq_master_admin"/>
+
+    <menuitem id="menu_teq_user_accounts"
+              name="User Accounts &amp; Passwords"
+              parent="teq_trust_core.menu_teq_administration_root"
+              action="teq_trust_core.action_teq_user_accounts"
+              sequence="10"
+              groups="teq_trust_core.group_teq_master_admin"/>
+
+    <menuitem id="menu_teq_employees"
+              name="Employees"
+              parent="teq_trust_core.menu_teq_administration_root"
+              action="teq_trust_core.action_teq_employees"
+              sequence="20"
+              groups="teq_trust_core.group_teq_master_admin"/>
+
+    <menuitem id="menu_teq_system_settings"
+              name="System Settings"
+              parent="teq_trust_core.menu_teq_administration_root"
+              action="teq_trust_core.action_teq_system_settings"
+              sequence="90"
+              groups="teq_trust_core.group_teq_master_admin"/>
+</odoo>

@@ -1,6 +1,6 @@
 {
     "name": "TEQ Trust Egypt ERP",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "summary": "Complete ERP and calibration management for TEQ Trust Egypt for Quality",
     "category": "Administration",
     "author": "TEQ Trust Egypt for Quality",
@@ -17,6 +17,7 @@
         "report/calibration_certificate_report.xml",
         "views/access_profile_views.xml",
         "views/res_users_views.xml",
+        "views/employee_onboarding_views.xml",
         "views/calibration_views.xml",
         "views/sign_request_views.xml",
         "views/appraisal_views.xml",
