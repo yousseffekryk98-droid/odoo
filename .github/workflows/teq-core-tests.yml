@@ -1,0 +1,47 @@
+name: TEQ ERP core tests
+
+on:
+  push:
+    branches:
+      - teq-trust-egypt-erp
+  pull_request:
+    branches:
+      - teq-trust-egypt-erp
+
+permissions:
+  contents: read
+
+jobs:
+  teq-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create test environment
+        run: |
+          cat > deploy/.env <<'EOF'
+          POSTGRES_IMAGE_TAG=15-alpine
+          POSTGRES_USER=odoo
+          POSTGRES_PASSWORD=teq_ci_database_password
+          ODOO_IMAGE=odoo:19.0
+          ODOO_MASTER_PASSWORD=teq_ci_master_password
+          ODOO_DB_NAME=teq_trust
+          ODOO_BIND=127.0.0.1
+          ODOO_PORT=8069
+          ODOO_PROXY_MODE=False
+          ODOO_LIST_DB=False
+          ODOO_WORKERS=0
+          ODOO_LIMIT_TIME_CPU=180
+          ODOO_LIMIT_TIME_REAL=360
+          ODOO_MAX_CRON_THREADS=1
+          BACKUP_RETENTION_DAYS=14
+          EOF
+
+      - name: Run TEQ module tests
+        run: bash deploy/scripts/test.sh
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose --env-file deploy/.env -f docker-compose.teq.yml logs --no-color || true
