@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 : "${HOST:=db}"
 : "${PORT:=5432}"
@@ -36,4 +37,5 @@ max_cron_threads = ${ODOO_MAX_CRON_THREADS}
 without_demo = all
 EOF
 
+chmod 600 "${CONFIG_FILE}"
 exec /entrypoint.sh odoo -c "${CONFIG_FILE}" "$@"
