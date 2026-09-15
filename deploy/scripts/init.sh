@@ -30,18 +30,46 @@ echo "Starting PostgreSQL..."
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d db
 
 echo "Waiting for PostgreSQL..."
-until docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
-  pg_isready -U "${DB_USER}" -d postgres >/dev/null 2>&1; do
+DB_READY=0
+for _attempt in $(seq 1 60); do
+  if docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
+    pg_isready -U "${DB_USER}" -d postgres >/dev/null 2>&1; then
+    DB_READY=1
+    break
+  fi
   sleep 2
 done
+if [[ "${DB_READY}" != "1" ]]; then
+  echo "PostgreSQL did not become ready within 120 seconds." >&2
+  exit 1
+fi
+
+# Never run module installation/upgrades concurrently with the normal Odoo service.
+echo "Stopping the normal Odoo service before module install/upgrade..."
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" stop odoo >/dev/null 2>&1 || true
 
 DB_EXISTS="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
   psql -U "${DB_USER}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'")"
 
 if [[ "${DB_EXISTS}" == "1" ]]; then
-  echo "Database ${DB_NAME} already exists; upgrading TEQ Trust Egypt ERP..."
-  docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm --no-deps odoo \
-    -d "${DB_NAME}" -u teq_trust_core --without-demo=all --stop-after-init
+  HAS_ODOO_SCHEMA="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
+    psql -U "${DB_USER}" -d "${DB_NAME}" -tAc "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN 0 ELSE 1 END")"
+
+  MODULE_STATE=""
+  if [[ "${HAS_ODOO_SCHEMA}" == "1" ]]; then
+    MODULE_STATE="$(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" exec -T db \
+      psql -U "${DB_USER}" -d "${DB_NAME}" -tAc "SELECT state FROM ir_module_module WHERE name='teq_trust_core' LIMIT 1")"
+  fi
+
+  if [[ "${MODULE_STATE}" == "installed" || "${MODULE_STATE}" == "to upgrade" ]]; then
+    echo "Database ${DB_NAME} exists and TEQ is installed; upgrading teq_trust_core..."
+    docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm --no-deps odoo \
+      -d "${DB_NAME}" -u teq_trust_core --without-demo=all --stop-after-init
+  else
+    echo "Database ${DB_NAME} exists but TEQ is not installed; installing teq_trust_core..."
+    docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm --no-deps odoo \
+      -d "${DB_NAME}" -i teq_trust_core --without-demo=all --stop-after-init
+  fi
 else
   echo "Initializing ${DB_NAME} and installing TEQ Trust Egypt ERP..."
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm --no-deps odoo \
