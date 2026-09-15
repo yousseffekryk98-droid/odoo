@@ -83,6 +83,17 @@ class TeqHrAppraisal(models.Model):
         if not self.env.user.has_group("teq_trust_core.group_teq_appraisal_manager"):
             raise UserError(_("Only an Appraisal Manager can perform this action."))
 
+    def _close_employee_input_activity(self, feedback):
+        for record in self:
+            employee_user = record.employee_id.user_id
+            if not employee_user:
+                continue
+            activities = record.activity_ids.filtered(
+                lambda activity: activity.active and activity.user_id == employee_user
+            )
+            if activities:
+                activities.action_feedback(feedback=feedback)
+
     @api.onchange("employee_id")
     def _onchange_employee_id(self):
         if self.employee_id and self.employee_id.parent_id and not self.manager_id:
@@ -97,12 +108,16 @@ class TeqHrAppraisal(models.Model):
             changed_business_fields = set(vals) & self._APPRAISAL_FIELDS
             if not changed_business_fields:
                 continue
-            if record.state == "done":
-                raise UserError(_("Completed appraisals are locked and cannot be edited."))
+            if record.state in ("done", "cancelled") and not self.env.context.get("teq_appraisal_workflow_transition"):
+                raise UserError(_("Completed or cancelled appraisals are locked."))
             if self.env.context.get("teq_appraisal_workflow_transition"):
                 continue
+
             if is_manager:
+                if "employee_feedback" in changed_business_fields:
+                    raise UserError(_("Employee feedback can only be edited by the employee during Employee Input."))
                 continue
+
             if record.employee_id.user_id != self.env.user:
                 raise UserError(_("You can only edit your own appraisal feedback."))
             if record.state != "employee" or changed_business_fields - {"employee_feedback"}:
@@ -143,11 +158,7 @@ class TeqHrAppraisal(models.Model):
             if record.state != "employee":
                 raise UserError(_("The appraisal must be in Employee Input before manager review."))
             record.with_context(teq_appraisal_workflow_transition=True).write({"state": "manager"})
-            activities = record.activity_ids.filtered(
-                lambda activity: activity.active and activity.user_id == record.employee_id.user_id
-            )
-            if activities:
-                activities.action_feedback(feedback=_("Employee input stage completed."))
+            record._close_employee_input_activity(_("Employee input stage completed."))
         return True
 
     def action_complete(self):
@@ -167,6 +178,7 @@ class TeqHrAppraisal(models.Model):
         for record in self:
             if record.state in ("done", "cancelled"):
                 raise UserError(_("Completed or already-cancelled appraisals cannot be cancelled."))
+            record._close_employee_input_activity(_("Appraisal cancelled by a manager."))
             record.with_context(teq_appraisal_workflow_transition=True).write({"state": "cancelled"})
         return True
 
