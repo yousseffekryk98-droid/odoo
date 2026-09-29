@@ -1,7 +1,6 @@
 # Part of TEQ Trust Egypt for Quality.
 
-from odoo import api, models, _
-from odoo.exceptions import ValidationError
+from odoo import api, models
 
 
 class TeqSignRequestUiSecurity(models.Model):
@@ -33,13 +32,3 @@ class TeqCalibrationEquipmentUiSafety(models.Model):
     def _onchange_teq_equipment_company(self):
         if self.assigned_user_id and self.company_id not in self.assigned_user_id.company_ids:
             self.assigned_user_id = False
-
-
-class TeqEmployeeOnboardingValidation(models.TransientModel):
-    _inherit = "teq.employee.onboarding"
-
-    @api.constrains("name")
-    def _check_employee_name(self):
-        for wizard in self:
-            if not (wizard.name or "").strip():
-                raise ValidationError(_("Employee name cannot be blank."))
