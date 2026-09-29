@@ -59,6 +59,12 @@ class TeqEmployeeOnboarding(models.TransientModel):
         if self.manager_id and self.manager_id.company_id != self.company_id:
             self.manager_id = False
 
+    @api.constrains("name")
+    def _check_employee_name(self):
+        for wizard in self:
+            if not (wizard.name or "").strip():
+                raise ValidationError(_("Employee name cannot be blank."))
+
     @api.constrains("create_login", "login", "initial_password", "confirm_password")
     def _check_login_credentials(self):
         for wizard in self:
