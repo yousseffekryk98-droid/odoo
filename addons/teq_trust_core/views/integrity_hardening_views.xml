@@ -20,7 +20,7 @@
             <xpath expr="//field[@name='quoted_price']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
             <xpath expr="//field[@name='method']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
             <xpath expr="//field[@name='environmental_conditions']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
-            <xpath expr="//field[@name='notes']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
+            <xpath expr="//page/field[@name='notes']" position="attributes"><attribute name="readonly">state in ('done','delivered','cancelled') or (state == 'review' and not can_manage_calibration)</attribute></xpath>
         </field>
     </record>
 
