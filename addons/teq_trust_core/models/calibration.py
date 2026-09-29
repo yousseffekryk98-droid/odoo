@@ -35,7 +35,7 @@ class TeqCalibrationEquipment(models.Model):
     )
     assigned_user_id = fields.Many2one(
         "res.users",
-        string="Responsible User",
+        string="Calibration Responsible",
         default=lambda self: self.env.user,
         domain="[('share', '=', False), ('company_ids', 'in', company_id)]",
         tracking=True,
