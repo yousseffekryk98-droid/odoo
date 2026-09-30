@@ -67,6 +67,8 @@ class TeqEmployeeOnboarding(models.TransientModel):
 
     @api.constrains("create_login", "login", "initial_password", "confirm_password")
     def _check_login_credentials(self):
+        if self.env.context.get("teq_scrub_onboarding_credentials"):
+            return
         for wizard in self:
             if not wizard.create_login:
                 continue
@@ -93,7 +95,7 @@ class TeqEmployeeOnboarding(models.TransientModel):
         self.ensure_one()
         self._check_master_admin()
 
-        User = self.env["res.users"].with_context(active_test=False)
+        User = self.env["res.users"].with_context(active_test=False, no_reset_password=True)
         login = (self.login or self.email or "").strip()
         email = (self.email or login).strip()
 
@@ -142,6 +144,9 @@ class TeqEmployeeOnboarding(models.TransientModel):
         )
 
         if self.create_login:
+            self.with_context(teq_scrub_onboarding_credentials=True).write(
+                {"initial_password": False, "confirm_password": False}
+            )
             return {
                 "type": "ir.actions.act_window",
                 "name": _("User Account"),
