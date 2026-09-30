@@ -2,6 +2,8 @@
 
 
 def post_init_hook(env):
+    env["res.company"].teq_configure_main_company()
+
     helper = env["teq.access.profile.mixin"]
     highest_groups = helper._teq_select_highest_groups()
     master_group = env.ref("teq_trust_core.group_teq_master_admin")
