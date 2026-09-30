@@ -38,6 +38,7 @@ class TestTeqEmployeeOnboarding(TransactionCase):
         self.assertIn(self.internal_group, user.group_ids)
         self.assertFalse(wizard.initial_password)
         self.assertFalse(wizard.confirm_password)
+        self.assertFalse(user.partner_id.signup_type)
 
         auth_info = user.with_user(user)._check_credentials(
             {"type": "password", "password": example_password},
