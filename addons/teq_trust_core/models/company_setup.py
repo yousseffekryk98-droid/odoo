@@ -17,18 +17,14 @@ class ResCompany(models.Model):
         egp = self.env.ref("base.EGP", raise_if_not_found=False)
         usd = self.env.ref("base.USD", raise_if_not_found=False)
 
-        values = {}
         if company.name == "My Company":
-            values["name"] = "TEQ Trust Egypt for Quality"
+            company.sudo().write({"name": "TEQ Trust Egypt for Quality"})
+
+        # Set the fiscal country before loading the chart. Odoo can install/reload
+        # localization data when the country changes, so re-browse afterwards.
         if egypt and not company.country_id:
-            values["country_id"] = egypt.id
-
-        has_accounting_entries = company._existing_accounting()
-        if egp and usd and not has_accounting_entries and company.currency_id == usd:
-            values["currency_id"] = egp.id
-
-        if values:
-            company.sudo().write(values)
+            company.sudo().write({"country_id": egypt.id})
+            company = self.browse(company.id)
 
         if (
             egypt
@@ -37,5 +33,16 @@ class ResCompany(models.Model):
             and company.chart_template != "eg"
         ):
             self.env["account.chart.template"].sudo().try_loading("eg", company)
+            company = self.browse(company.id)
+
+        # The stock database starts in USD. Set EGP only for an unused ledger;
+        # never rewrite the currency of a company that already has entries.
+        if (
+            egp
+            and usd
+            and not company._existing_accounting()
+            and company.currency_id == usd
+        ):
+            company.sudo().write({"currency_id": egp.id})
 
         return True
