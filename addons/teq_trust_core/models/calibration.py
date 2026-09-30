@@ -35,7 +35,7 @@ class TeqCalibrationEquipment(models.Model):
     )
     assigned_user_id = fields.Many2one(
         "res.users",
-        string="Responsible User",
+        string="Calibration Responsible",
         default=lambda self: self.env.user,
         domain="[('share', '=', False), ('company_ids', 'in', company_id)]",
         tracking=True,
@@ -66,13 +66,10 @@ class TeqCalibrationEquipment(models.Model):
     job_ids = fields.One2many("teq.calibration.job", "equipment_id", string="Calibration Jobs")
     job_count = fields.Integer(compute="_compute_job_count")
 
-    _sql_constraints = [
-        (
-            "positive_calibration_interval",
-            "CHECK(calibration_interval_months > 0)",
-            "Calibration interval must be greater than zero.",
-        )
-    ]
+    _positive_calibration_interval = models.Constraint(
+        "CHECK(calibration_interval_months > 0)",
+        "Calibration interval must be greater than zero.",
+    )
 
     @api.depends("last_calibration_date", "calibration_interval_months")
     def _compute_next_due_date(self):

@@ -1,12 +1,12 @@
 {
     "name": "TEQ Trust Egypt ERP",
-    "version": "19.0.1.3.1",
+    "version": "19.0.1.4.0",
     "summary": "Complete ERP and calibration management for TEQ Trust Egypt for Quality",
     "category": "Administration",
     "author": "TEQ Trust Egypt for Quality",
     "license": "LGPL-3",
     "depends": [
-        "mail", "sale_management", "crm", "point_of_sale", "account", "hr_expense", "spreadsheet",
+        "mail", "sale_management", "crm", "point_of_sale", "account", "l10n_eg", "hr_expense", "spreadsheet",
         "stock", "purchase", "purchase_stock", "sale_stock", "maintenance", "hr", "hr_holidays",
         "fleet", "survey", "project", "sale_project"
     ],
