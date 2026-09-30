@@ -2,9 +2,7 @@
 
 
 def post_init_hook(env):
-    main_company = env.ref("base.main_company", raise_if_not_found=False)
-    if main_company:
-        main_company.write({"name": "TEQ Trust Egypt for Quality"})
+    env["res.company"].teq_configure_main_company()
 
     helper = env["teq.access.profile.mixin"]
     highest_groups = helper._teq_select_highest_groups()
