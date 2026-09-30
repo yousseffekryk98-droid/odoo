@@ -95,7 +95,7 @@ class TeqEmployeeOnboarding(models.TransientModel):
         self.ensure_one()
         self._check_master_admin()
 
-        User = self.env["res.users"].with_context(active_test=False)
+        User = self.env["res.users"].with_context(active_test=False, no_reset_password=True)
         login = (self.login or self.email or "").strip()
         email = (self.email or login).strip()
 
