@@ -1,6 +1,7 @@
 from . import access_profile
 from . import res_users
 from . import company_setup
+from . import ir_module
 from . import calibration
 from . import sign_request
 from . import appraisal
