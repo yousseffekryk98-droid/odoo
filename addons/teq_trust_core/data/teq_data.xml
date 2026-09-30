@@ -22,7 +22,6 @@
         <field name="company_id" eval="False"/>
     </record>
 
-    <function model="res.company" name="teq_configure_main_company"/>
     <function model="teq.access.profile" name="teq_seed_default_profiles"/>
     <function model="teq.esg.metric" name="teq_backfill_target_flags"/>
 
