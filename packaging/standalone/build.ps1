@@ -37,7 +37,7 @@ Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonZip
 Expand-Archive -Path $pythonZip -DestinationPath $pythonRuntime -Force
 $pth = Join-Path $pythonRuntime 'python312._pth'
 if (!(Test-Path $pth)) { throw 'Missing python312._pth in embedded runtime.' }
-@('python312.zip', '.', 'Lib\site-packages', 'import site') | Set-Content -Path $pth -Encoding ascii
+@('python312.zip', '.', 'Lib\site-packages', '..\..', 'import site') | Set-Content -Path $pth -Encoding ascii
 $site = Join-Path $pythonRuntime 'Lib\site-packages'
 New-Item -ItemType Directory -Force $site | Out-Null
 $hostPython = (Get-Command python).Source
