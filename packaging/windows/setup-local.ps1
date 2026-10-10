@@ -60,7 +60,7 @@ try {
             "db_password = $password"
             "admin_passwd = $masterPassword"
         )
-        $configLines | Set-Content -Path $config -Encoding UTF8
+        [System.IO.File]::WriteAllLines($config, $configLines, (New-Object System.Text.UTF8Encoding($false)))
         Write-Host ""
         Write-Host "IMPORTANT: Your Odoo database manager master password is:"
         Write-Host $masterPassword
