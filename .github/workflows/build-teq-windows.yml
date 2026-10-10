@@ -61,10 +61,23 @@ jobs:
           Copy-Item packaging/windows/WINDOWS_BUILD.md package/
           Copy-Item odoo-bin package/
           Copy-Item requirements.txt package/
-          Copy-Item -Recurse odoo package/
-          Copy-Item -Recurse addons package/
+          Copy-Item -Recurse -Force odoo package/
+          Copy-Item -Recurse -Force addons package/
           if (Test-Path custom_addons) {
-            Copy-Item -Recurse custom_addons package/
+            Copy-Item -Recurse -Force custom_addons package/
+          }
+          # odoo.upgrade is an intentional namespace package consisting only of
+          # .gitkeep in git. Hidden dotfiles and empty dirs can disappear from
+          # upload-artifact ZIPs, causing ModuleNotFoundError at startup.
+          $upgradeDir = Join-Path 'package' 'odoo/upgrade'
+          New-Item -ItemType Directory -Force -Path $upgradeDir | Out-Null
+          "Keep this Odoo namespace directory in the downloaded package." | Set-Content -Path (Join-Path $upgradeDir 'README.txt') -Encoding ascii
+          Push-Location package
+          try {
+            python -c "import odoo.upgrade; print('Verified packaged odoo.upgrade namespace')"
+            if ($LASTEXITCODE -ne 0) { throw 'Missing odoo.upgrade in Windows package.' }
+          } finally {
+            Pop-Location
           }
           Write-Host "Packaged files:"
           Get-ChildItem package | Select-Object Name,Length
