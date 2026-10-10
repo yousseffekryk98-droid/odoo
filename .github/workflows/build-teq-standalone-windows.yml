@@ -39,6 +39,23 @@ jobs:
           & .\packaging\standalone\build.ps1
           if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Standalone build failed: $LASTEXITCODE" }
 
+      - name: Verify downloadable installer
+        shell: pwsh
+        run: |
+          $exe = 'dist\standalone\TEQ-ERP-Setup.exe'
+          if (!(Test-Path $exe)) { throw 'Standalone setup executable missing.' }
+          $size = (Get-Item $exe).Length
+          if ($size -lt 50000000) { throw "Unexpectedly small installer: $size bytes." }
+          Write-Host "Verified installer size: $([math]::Round($size / 1MB)) MB"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TEQ-ERP-Standalone-Installer
+          path: dist/standalone/TEQ-ERP-Setup.exe
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
       - name: First-run smoke test with bundled runtimes and local database
         shell: pwsh
         timeout-minutes: 35
@@ -94,19 +111,3 @@ jobs:
             }
           }
 
-      - name: Verify downloadable installer
-        shell: pwsh
-        run: |
-          $exe = 'dist\standalone\TEQ-ERP-Setup.exe'
-          if (!(Test-Path $exe)) { throw 'Standalone setup executable missing.' }
-          $size = (Get-Item $exe).Length
-          if ($size -lt 50000000) { throw "Unexpectedly small installer: $size bytes." }
-          Write-Host "Verified installer size: $([math]::Round($size / 1MB)) MB"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: TEQ-ERP-Standalone-Installer
-          path: dist/standalone/TEQ-ERP-Setup.exe
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
