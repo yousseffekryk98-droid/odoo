@@ -1,0 +1,112 @@
+name: Build TEQ Standalone Installer
+
+on:
+  push:
+    branches:
+      - build/teq-standalone-windows
+    paths:
+      - '.github/workflows/build-teq-standalone-windows.yml'
+      - 'packaging/standalone/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out TEQ branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare build Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate launcher syntax
+        shell: pwsh
+        run: |
+          python -m py_compile packaging/standalone/launcher.py
+          if ($LASTEXITCODE -ne 0) { throw 'Launcher Python syntax check failed.' }
+
+      - name: Produce standalone Windows installer
+        shell: pwsh
+        run: |
+          & .\packaging\standalone\build.ps1
+          if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Standalone build failed: $LASTEXITCODE" }
+
+      - name: First-run smoke test with bundled runtimes and local database
+        shell: pwsh
+        timeout-minutes: 35
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = (Get-Location).Path
+          $payload = Join-Path $root '.teq-standalone-build\payload'
+          $app = Join-Path $payload 'TEQ-ERP.exe'
+          $env:LOCALAPPDATA = Join-Path $root '.teq-smoke-profile'
+          New-Item -ItemType Directory -Force $env:LOCALAPPDATA | Out-Null
+          $outLog = Join-Path $root '.teq-smoke-out.log'
+          $errorLog = Join-Path $root '.teq-smoke-error.log'
+          $server = $null
+          try {
+            $server = Start-Process -FilePath $app -WorkingDirectory $payload -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errorLog
+            $ok = $false
+            for ($i=0; $i -lt 150; $i++) {
+              Start-Sleep -Seconds 8
+              $server.Refresh()
+              if ($server.HasExited) { throw "The bundled TEQ ERP process exited (code $($server.ExitCode))." }
+              try {
+                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:8069/web' -TimeoutSec 4 -UseBasicParsing
+                if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) {
+                  $ok = $true
+                  break
+                }
+              } catch {
+                Write-Host "Waiting for first-run initialization: $($_.Exception.Message)"
+              }
+            }
+            if (!$ok) { throw 'TEQ ERP did not become ready within 20 minutes.' }
+            if (!(Test-Path (Join-Path $env:LOCALAPPDATA 'TEQ-ERP-Standalone\postgresql\PG_VERSION'))) {
+              throw 'Bundled local PostgreSQL was not initialized.'
+            }
+            Write-Host 'PASS: bundled PostgreSQL started, Odoo initialized, and the web interface responded.'
+          }
+          finally {
+            if (Test-Path $outLog) { Get-Content $outLog -Tail 80 }
+            if (Test-Path $errorLog) { Get-Content $errorLog -Tail 80 }
+            $logs = Join-Path $env:LOCALAPPDATA 'TEQ-ERP-Standalone\logs'
+            foreach ($name in @('initialize.log', 'odoo.log', 'postgres.log')) {
+              $file = Join-Path $logs $name
+              if (Test-Path $file) {
+                Write-Host "Last entries in $name"
+                Get-Content $file -Tail 45
+              }
+            }
+            if ($server -and !$server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+            $pg = Join-Path $payload 'runtime\postgres\bin\pg_ctl.exe'
+            $data = Join-Path $env:LOCALAPPDATA 'TEQ-ERP-Standalone\postgresql'
+            if ((Test-Path $pg) -and (Test-Path $data)) {
+              & $pg -D $data -m immediate -w stop 2>$null
+            }
+          }
+
+      - name: Verify downloadable installer
+        shell: pwsh
+        run: |
+          $exe = 'dist\standalone\TEQ-ERP-Setup.exe'
+          if (!(Test-Path $exe)) { throw 'Standalone setup executable missing.' }
+          $size = (Get-Item $exe).Length
+          if ($size -lt 50000000) { throw "Unexpectedly small installer: $size bytes." }
+          Write-Host "Verified installer size: $([math]::Round($size / 1MB)) MB"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TEQ-ERP-Standalone-Installer
+          path: dist/standalone/TEQ-ERP-Setup.exe
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
