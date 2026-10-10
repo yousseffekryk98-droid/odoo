@@ -41,7 +41,7 @@ if (!(Test-Path $pth)) { throw 'Missing python312._pth in embedded runtime.' }
 $site = Join-Path $pythonRuntime 'Lib\site-packages'
 New-Item -ItemType Directory -Force $site | Out-Null
 $hostPython = (Get-Command python).Source
-Run-Checked $hostPython @('-m', 'pip', 'install', '--disable-pip-version-check', '--only-binary=:all:', '--target', $site, '-r', (Join-Path $repo 'requirements.txt'))
+Run-Checked $hostPython @('-m', 'pip', 'install', '--disable-pip-version-check', '--target', $site, '-r', (Join-Path $repo 'requirements.txt'))
 Run-Checked $hostPython @('-m', 'pip', 'install', '--disable-pip-version-check', '--only-binary=:all:', '--target', $site, 'packaging')
 Run-Checked (Join-Path $pythonRuntime 'python.exe') @('-c', 'import psycopg2, lxml, werkzeug, packaging; print("Embedded Python OK")')
 Push-Location $payload
