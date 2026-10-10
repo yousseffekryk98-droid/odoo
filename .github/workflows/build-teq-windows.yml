@@ -1,0 +1,42 @@
+name: Build TEQ Windows EXE
+on:
+  workflow_dispatch:
+  push:
+    branches: [build/teq-windows-exe]
+    paths:
+      - 'packaging/windows/**'
+      - '.github/workflows/build-teq-windows.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build Windows launcher
+        shell: pwsh
+        run: |
+          python -m pip install pyinstaller
+          pyinstaller --onefile --console --name TEQ-ERP --distpath dist packaging/windows/launcher.py
+      - name: Package application and setup scripts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package | Out-Null
+          Copy-Item dist/TEQ-ERP.exe package/
+          Copy-Item packaging/windows/setup-local.ps1 package/
+          Copy-Item packaging/windows/WINDOWS_BUILD.md package/
+          Copy-Item odoo-bin package/
+          Copy-Item requirements.txt package/
+          Copy-Item -Recurse odoo package/
+          Copy-Item -Recurse addons package/
+          if (Test-Path custom_addons) { Copy-Item -Recurse custom_addons package/ }
+          Compress-Archive -Path package/* -DestinationPath TEQ-ERP-Windows.zip -CompressionLevel Optimal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TEQ-ERP-Windows
+          path: TEQ-ERP-Windows.zip
+          retention-days: 30
