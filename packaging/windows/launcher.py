@@ -5,6 +5,8 @@ The packaged EXE is a launcher, not a self-contained Odoo/PostgreSQL runtime.
 from __future__ import annotations
 
 import configparser
+import ctypes
+import traceback
 import os
 from pathlib import Path
 import subprocess
@@ -60,6 +62,20 @@ def ensure_config(config: Path, data: Path) -> None:
     )
 
 
+def show_error(message: str) -> None:
+    """Keep startup errors visible even after a double-clicked console closes."""
+    details = (
+        str(message) + "\\n\\n"
+        "This EXE must stay beside odoo-bin and the Odoo source folder.\\n"
+        "Run setup-local.ps1 before the first launch.\\n\\n"
+        "Detailed Odoo errors: %LOCALAPPDATA%\\\\TEQ-ERP\\\\logs\\\\odoo.log"
+    ).replace("\\n", "\n")
+    try:
+        ctypes.windll.user32.MessageBoxW(None, details, "TEQ ERP - Startup Error", 0x10)
+    except Exception:
+        print(details, file=sys.stderr)
+
+
 def main() -> int:
     root = app_root()
     python = root / ".venv" / "Scripts" / "python.exe"
@@ -67,10 +83,12 @@ def main() -> int:
     setup = root / "setup-local.ps1"
     if not odoo.is_file():
         print("ERROR: odoo-bin is missing; extract the COMPLETE Windows build ZIP.")
+        show_error("Missing odoo-bin. Download and extract the complete TEQ-ERP-Windows ZIP, not just the small EXE.")
         return 1
     if not python.is_file():
         print(f"ERROR: Python environment is missing: {python}")
         print(f"Run setup-local.ps1 in PowerShell first: {setup}")
+        show_error("Python environment is missing. Extract the full ZIP, then run setup-local.ps1. Python 3.12 and PostgreSQL must be installed.")
         return 1
 
     data = data_root()
@@ -129,4 +147,17 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        code = main()
+    except BaseException as exc:
+        message = "TEQ ERP failed unexpectedly: " + str(exc)
+        print(traceback.format_exc(), file=sys.stderr)
+        show_error(message)
+        sys.exit(1)
+    if code:
+        show_error(
+            "TEQ ERP exited with an error (code " + str(code) + ").\\n"
+            "If you ran only the EXE, extract the full TEQ-ERP-Windows ZIP.\\n"
+            "If setup is complete, inspect the Odoo log shown below."
+        )
+    sys.exit(code)
