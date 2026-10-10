@@ -160,6 +160,9 @@ def show_error(state, exception):
                 message += "\n\n" + name + ":\n" + "\n".join(lines[-9:])[-1600:]
     message += f"\n\nDiagnostic logs: {state / 'logs'}"
     print(message, file=sys.stderr, flush=True)
+    # Do not block unattended Windows runner smoke tests with a modal dialog.
+    if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
+        return
     try:
         ctypes.windll.user32.MessageBoxW(None, message[-5000:], "TEQ ERP startup error", 0x10)
     except Exception:
