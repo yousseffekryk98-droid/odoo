@@ -86,8 +86,24 @@ def ensure_postgres(state, commands, credentials):
     started = False
     if ping.returncode:
         print("Starting bundled PostgreSQL...", flush=True)
-        run([commands["pg_ctl"], "-D", data, "-l", state / "logs" / "postgres.log",
-             "-o", f"-h 127.0.0.1 -p {PORT}", "-w", "start"])
+        # pg_ctl starts a long-lived postgres.exe subprocess. Never capture its
+        # stdout/stderr with pipes: on Windows the child can inherit the pipe
+        # handles and make subprocess.run(capture_output=True) wait indefinitely.
+        startup = subprocess.run(
+            [str(commands["pg_ctl"]), "-D", str(data),
+             "-l", str(state / "logs" / "postgres.log"),
+             "-o", f"-h 127.0.0.1 -p {PORT}", "-w", "start"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=90,
+            creationflags=CREATE_NO_WINDOW,
+        )
+        if startup.returncode:
+            raise RuntimeError(
+                "Bundled PostgreSQL failed to start; see " +
+                str(state / "logs" / "postgres.log"))
+        print("Local PostgreSQL is ready.", flush=True)
         started = True
     options = ["-h", "127.0.0.1", "-p", str(PORT), "-U", ADMIN, "-d", "postgres"]
     exists = run([commands["psql"], *options, "-tAc", f"SELECT count(*) FROM pg_roles WHERE rolname='{ROLE}'"], env=pg_env(credentials, True))
