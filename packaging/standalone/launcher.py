@@ -44,6 +44,22 @@ def pg_env(credentials, admin=False):
     return env
 
 
+def odoo_env(credentials):
+    """Force Odoo's database environment to match our dedicated local role.
+
+    Odoo 19 gives PGUSER/PGPASSWORD higher priority than settings read from
+    odoo.conf. Machine-wide PostgreSQL variables may otherwise select the
+    forbidden postgres superuser even when our config is correct.
+    """
+    env = os.environ.copy()
+    env["PGUSER"] = ROLE
+    env["PGPASSWORD"] = credentials["odoo_password"]
+    env["PGHOST"] = "127.0.0.1"
+    env["PGPORT"] = str(PORT)
+    env["PGDATABASE"] = DB
+    return env
+
+
 def get_credentials(state):
     path = state / "credentials.json"
     if path.exists():
@@ -160,7 +176,8 @@ def init_odoo(root, state, python, postgres, config, passwords):
         proc = subprocess.run([str(python), str(root / "odoo-bin"), "-c", str(config),
                                "-d", DB, "-i", "base", "--stop-after-init"],
                               cwd=str(root), stdout=stream, stderr=subprocess.STDOUT,
-                              timeout=1200, creationflags=CREATE_NO_WINDOW)
+                              env=odoo_env(passwords), timeout=1200,
+                              creationflags=CREATE_NO_WINDOW)
     if proc.returncode:
         raise RuntimeError(f"Odoo database initialization failed (exit {proc.returncode}); see {logfile}")
     print("Database initialization complete.", flush=True)
@@ -206,7 +223,7 @@ def main():
         with logfile.open("a", encoding="utf-8") as stream:
             server = subprocess.Popen([str(python), str(root / "odoo-bin"), "-c", str(config),
                                        "-d", DB], cwd=str(root), stdout=stream, stderr=subprocess.STDOUT,
-                                      creationflags=CREATE_NO_WINDOW)
+                                      env=odoo_env(creds), creationflags=CREATE_NO_WINDOW)
             ready = False
             for _ in range(180):
                 if server.poll() is not None:
