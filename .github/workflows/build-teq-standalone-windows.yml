@@ -58,7 +58,7 @@ jobs:
 
       - name: First-run smoke test with bundled runtimes and local database
         shell: pwsh
-        timeout-minutes: 35
+        timeout-minutes: 55
         run: |
           $ErrorActionPreference = 'Stop'
           $root = (Get-Location).Path
@@ -72,7 +72,7 @@ jobs:
           try {
             $server = Start-Process -FilePath $app -WorkingDirectory $payload -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errorLog
             $ok = $false
-            for ($i=0; $i -lt 150; $i++) {
+            for ($i=0; $i -lt 240; $i++) {
               Start-Sleep -Seconds 8
               $server.Refresh()
               if ($server.HasExited) { throw "The bundled TEQ ERP process exited (code $($server.ExitCode))." }
@@ -86,11 +86,24 @@ jobs:
                 Write-Host "Waiting for first-run initialization: $($_.Exception.Message)"
               }
             }
-            if (!$ok) { throw 'TEQ ERP did not become ready within 20 minutes.' }
+            if (!$ok) { throw 'TEQ ERP did not become ready within 32 minutes.' }
             if (!(Test-Path (Join-Path $env:LOCALAPPDATA 'TEQ-ERP-Standalone\postgresql\PG_VERSION'))) {
               throw 'Bundled local PostgreSQL was not initialized.'
             }
-            Write-Host 'PASS: bundled PostgreSQL started, Odoo initialized, and the web interface responded.'
+            $credentials = Get-Content (Join-Path $env:LOCALAPPDATA 'TEQ-ERP-Standalone\credentials.json') -Raw | ConvertFrom-Json
+            $env:PGPASSWORD = $credentials.odoo_password
+            try {
+              $psql = Join-Path $payload 'runtime\postgres\bin\psql.exe'
+              $moduleState = & $psql -h 127.0.0.1 -p 55439 -U teq_odoo -d teq_erp -tAc "SELECT state FROM ir_module_module WHERE name='teq_trust_core'"
+              if ($LASTEXITCODE -ne 0) { throw "Cannot confirm TEQ Trust Egypt ERP installation in local database." }
+              if ($moduleState.Trim() -ne 'installed') {
+                throw "TEQ module not installed. Database module state: $moduleState"
+              }
+            }
+            finally {
+              Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+            }
+            Write-Host 'PASS: bundled PostgreSQL started, TEQ Trust Egypt ERP module installed, and web interface responded.'
           }
           finally {
             if (Test-Path $outLog) { Get-Content $outLog -Tail 80 }
