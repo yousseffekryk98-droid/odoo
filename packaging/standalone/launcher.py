@@ -76,7 +76,7 @@ def get_credentials(state):
 def get_components(root):
     python = root / "runtime" / "python" / "python.exe"
     pg = root / "runtime" / "postgres" / "bin"
-    executables = {x: pg / f"{x}.exe" for x in ("initdb", "pg_ctl", "psql", "pg_isready", "createdb")}
+    executables = {x: pg / f"{x}.exe" for x in ("initdb", "pg_ctl", "psql", "pg_isready", "createdb", "pg_dump")}
     needed = [python, root / "odoo-bin", *(executables.values())]
     missing = [str(p) for p in needed if not p.is_file()]
     if missing:
@@ -158,29 +158,98 @@ def write_config(root, state, passwords):
 
 
 def init_odoo(root, state, python, postgres, config, passwords):
+    """Install the actual TEQ ERP module; never stop at vanilla Odoo base."""
+    teq_manifest = root / "addons" / "teq_trust_core" / "__manifest__.py"
+    if not teq_manifest.is_file():
+        raise RuntimeError(
+            "The TEQ ERP application is missing from the installer: " +
+            str(teq_manifest)
+        )
+
     conn = ["-h", "127.0.0.1", "-p", str(PORT), "-U", ROLE]
     env = pg_env(passwords)
-    found = run([postgres["psql"], *conn, "-d", "postgres", "-tAc",
-                 f"SELECT count(*) FROM pg_database WHERE datname='{DB}'"], env=env)
+    found = run(
+        [postgres["psql"], *conn, "-d", "postgres", "-tAc",
+         f"SELECT count(*) FROM pg_database WHERE datname='{DB}'"],
+        env=env,
+    )
     if found == "0":
         print("Creating the local TEQ ERP database...", flush=True)
         run([postgres["createdb"], *conn, DB], env=env)
-    else:
-        check = run([postgres["psql"], *conn, "-d", DB, "-tAc",
-                     "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='ir_module_module'"], env=env)
-        if check == "1":
+
+    schema = run(
+        [postgres["psql"], *conn, "-d", DB, "-tAc",
+         "SELECT CASE WHEN to_regclass('public.ir_module_module') "
+         "IS NULL THEN 0 ELSE 1 END"],
+        env=env,
+    )
+    module_state = ""
+    if schema == "1":
+        module_state = run(
+            [postgres["psql"], *conn, "-d", DB, "-tAc",
+             "SELECT state FROM ir_module_module "
+             "WHERE name='teq_trust_core' LIMIT 1"],
+            env=env,
+        )
+        if module_state == "installed":
+            print("TEQ Trust Egypt ERP module is installed.", flush=True)
             return
-    print("Initializing Odoo for the first time (this may take a few minutes)...", flush=True)
+
+        # Existing databases may hold records created through the previous
+        # launcher, which installed only vanilla Odoo. Back up before
+        # changing that schema. Never delete existing databases.
+        backups = state / "backups"
+        backups.mkdir(exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        backup_file = backups / f"{DB}-before-teq-{stamp}.dump"
+        print("Backing up the existing local database before TEQ installation...",
+              flush=True)
+        run(
+            [postgres["pg_dump"], *conn, "-d", DB, "-Fc", "-f", backup_file],
+            env=env,
+            timeout=600,
+        )
+        if not backup_file.is_file() or backup_file.stat().st_size == 0:
+            raise RuntimeError("Pre-install database backup was not created.")
+        print(f"Existing database backup: {backup_file}", flush=True)
+
+    print("Installing TEQ Trust Egypt ERP and its required applications...",
+          flush=True)
+    print("First launch may take several minutes. Please keep the window open.",
+          flush=True)
     logfile = state / "logs" / "initialize.log"
-    with logfile.open("w", encoding="utf-8") as stream:
-        proc = subprocess.run([str(python), str(root / "odoo-bin"), "-c", str(config),
-                               "-d", DB, "-i", "base", "--stop-after-init"],
-                              cwd=str(root), stdout=stream, stderr=subprocess.STDOUT,
-                              env=odoo_env(passwords), timeout=1200,
-                              creationflags=CREATE_NO_WINDOW)
+    with logfile.open("a", encoding="utf-8") as stream:
+        stream.write("\n=== Installing TEQ Trust Egypt ERP ===\n")
+        proc = subprocess.run(
+            [str(python), str(root / "odoo-bin"),
+             "-c", str(config), "-d", DB,
+             "-i", "teq_trust_core", "--without-demo=all",
+             "--stop-after-init"],
+            cwd=str(root),
+            stdout=stream,
+            stderr=subprocess.STDOUT,
+            env=odoo_env(passwords),
+            timeout=2400,
+            creationflags=CREATE_NO_WINDOW,
+        )
     if proc.returncode:
-        raise RuntimeError(f"Odoo database initialization failed (exit {proc.returncode}); see {logfile}")
-    print("Database initialization complete.", flush=True)
+        raise RuntimeError(
+            "TEQ ERP application installation failed (exit " +
+            str(proc.returncode) + "); see " + str(logfile)
+        )
+
+    module_state = run(
+        [postgres["psql"], *conn, "-d", DB, "-tAc",
+         "SELECT state FROM ir_module_module "
+         "WHERE name='teq_trust_core' LIMIT 1"],
+        env=env,
+    )
+    if module_state != "installed":
+        raise RuntimeError(
+            "TEQ ERP installation did not complete. Module state: " +
+            repr(module_state) + ". See " + str(logfile)
+        )
+    print("TEQ Trust Egypt ERP installed successfully.", flush=True)
 
 
 def show_error(state, exception):
